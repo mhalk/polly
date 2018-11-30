@@ -690,9 +690,9 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
       break;
   }
 
-  ParallelLoopGenerator ParallelLoopGen = *ParallelLoopGenPtr;
+  // ParallelLoopGenerator ParallelLoopGen = *ParallelLoopGenPtr;
 
-  IV = ParallelLoopGen.createParallelLoop(ValueLB, ValueUB, ValueInc,
+  IV = ParallelLoopGenPtr->createParallelLoop(ValueLB, ValueUB, ValueInc,
                                           SubtreeValues, NewValues, &LoopBody);
   BasicBlock::iterator AfterLoop = Builder.GetInsertPoint();
   Builder.SetInsertPoint(&*LoopBody);

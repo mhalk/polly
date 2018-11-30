@@ -58,7 +58,7 @@ Value *ParallelLoopGeneratorGOMP::createParallelLoop(
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
 
-  AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
+  AllocaInst *Struct = ParallelLoopGenerator::storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
   Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
   *LoopBody = Builder.GetInsertPoint();
@@ -183,43 +183,6 @@ Function *ParallelLoopGeneratorGOMP::createSubFnDefinition() {
   return SubFn;
 }
 
-AllocaInst *
-ParallelLoopGeneratorGOMP::storeValuesIntoStruct(SetVector<Value *> &Values) {
-  SmallVector<Type *, 8> Members;
-
-  for (Value *V : Values)
-    Members.push_back(V->getType());
-
-  const DataLayout &DL = Builder.GetInsertBlock()->getModule()->getDataLayout();
-
-  // We do not want to allocate the alloca inside any loop, thus we allocate it
-  // in the entry block of the function and use annotations to denote the actual
-  // live span (similar to clang).
-  BasicBlock &EntryBB = Builder.GetInsertBlock()->getParent()->getEntryBlock();
-  Instruction *IP = &*EntryBB.getFirstInsertionPt();
-  StructType *Ty = StructType::get(Builder.getContext(), Members);
-  AllocaInst *Struct = new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr,
-                                      "polly.par.userContext", IP);
-
-  for (unsigned i = 0; i < Values.size(); i++) {
-    Value *Address = Builder.CreateStructGEP(Ty, Struct, i);
-    Address->setName("polly.subfn.storeaddr." + Values[i]->getName());
-    Builder.CreateStore(Values[i], Address);
-  }
-
-  return Struct;
-}
-
-void ParallelLoopGeneratorGOMP::extractValuesFromStruct(
-    SetVector<Value *> OldValues, Type *Ty, Value *Struct, ValueMapT &Map) {
-  for (unsigned i = 0; i < OldValues.size(); i++) {
-    Value *Address = Builder.CreateStructGEP(Ty, Struct, i);
-    Value *NewValue = Builder.CreateLoad(Address);
-    NewValue->setName("polly.subfunc.arg." + OldValues[i]->getName());
-    Map[OldValues[i]] = NewValue;
-  }
-}
-
 Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                           SetVector<Value *> Data,
                                           ValueMapT &Map, Function **SubFnPtr) {
@@ -249,8 +212,9 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructD
   UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 
-  extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
-                          Map);
+  ParallelLoopGenerator::extractValuesFromStruct(Data,
+                                                 StructData->getAllocatedType(),
+                                                 UserContext, Map);
   Builder.CreateBr(CheckNextBB);
 
   // Add code to check if another set of iterations will be executed.

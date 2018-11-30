@@ -162,11 +162,11 @@ public:
   /// @param LB         The lower bound for the loop we parallelize.
   /// @param UB         The upper bound for the loop we parallelize.
   /// @param Stride     The stride of the loop we parallelize.
-  void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
-                              Value *UB, Value *Stride);
+  virtual void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
+                              Value *UB, Value *Stride) = 0;
 
   /// Create a runtime library call to join the worker threads.
-  void createCallJoinThreads();
+  virtual void createCallJoinThreads() = 0;
 
   /// Create a runtime library call to get the next work item.
   ///
@@ -174,13 +174,13 @@ public:
   /// @param UBPtr A pointer value to store the work item end in.
   ///
   /// @returns A true value if the work item is not empty.
-  Value *createCallGetWorkItem(Value *LBPtr, Value *UBPtr);
+  virtual Value *createCallGetWorkItem(Value *LBPtr, Value *UBPtr) = 0;
 
   /// Create a runtime library call to allow cleanup of the thread.
   ///
   /// @note This function is called right before the thread will exit the
   ///       subfunction and only if the runtime system depends on it.
-  void createCallCleanupThread();
+  virtual void createCallCleanupThread() = 0;
 
   /// Create a struct for all @p Values and store them in there.
   ///

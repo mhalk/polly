@@ -29,6 +29,17 @@ static cl::opt<int>
                     cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
                     cl::init(0));
 
+static cl::opt<int>
+    PollyScheduling("polly-lomp-scheduling",
+                    cl::desc("Int representation of the KMPC scheduling"),
+                    cl::Hidden, cl::init(34));
+
+static cl::opt<int>
+    PollyChunkSize("polly-lomp-chunksize",
+                    cl::desc("Chunksize to use by the KMPC runtime calls"),
+                    cl::Hidden, cl::init(1));
+
+
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB
@@ -58,7 +69,7 @@ Value *ParallelLoopGeneratorLOMP::createParallelLoop(
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
 
-  AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
+  AllocaInst *Struct = ParallelLoopGenerator::storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
   Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
   *LoopBody = Builder.GetInsertPoint();
@@ -183,43 +194,6 @@ Function *ParallelLoopGeneratorLOMP::createSubFnDefinition() {
   return SubFn;
 }
 
-AllocaInst *
-ParallelLoopGeneratorLOMP::storeValuesIntoStruct(SetVector<Value *> &Values) {
-  SmallVector<Type *, 8> Members;
-
-  for (Value *V : Values)
-    Members.push_back(V->getType());
-
-  const DataLayout &DL = Builder.GetInsertBlock()->getModule()->getDataLayout();
-
-  // We do not want to allocate the alloca inside any loop, thus we allocate it
-  // in the entry block of the function and use annotations to denote the actual
-  // live span (similar to clang).
-  BasicBlock &EntryBB = Builder.GetInsertBlock()->getParent()->getEntryBlock();
-  Instruction *IP = &*EntryBB.getFirstInsertionPt();
-  StructType *Ty = StructType::get(Builder.getContext(), Members);
-  AllocaInst *Struct = new AllocaInst(Ty, DL.getAllocaAddrSpace(), nullptr,
-                                      "polly.par.userContext", IP);
-
-  for (unsigned i = 0; i < Values.size(); i++) {
-    Value *Address = Builder.CreateStructGEP(Ty, Struct, i);
-    Address->setName("polly.subfn.storeaddr." + Values[i]->getName());
-    Builder.CreateStore(Values[i], Address);
-  }
-
-  return Struct;
-}
-
-void ParallelLoopGeneratorLOMP::extractValuesFromStruct(
-    SetVector<Value *> OldValues, Type *Ty, Value *Struct, ValueMapT &Map) {
-  for (unsigned i = 0; i < OldValues.size(); i++) {
-    Value *Address = Builder.CreateStructGEP(Ty, Struct, i);
-    Value *NewValue = Builder.CreateLoad(Address);
-    NewValue->setName("polly.subfunc.arg." + OldValues[i]->getName());
-    Map[OldValues[i]] = NewValue;
-  }
-}
-
 Value *ParallelLoopGeneratorLOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                           SetVector<Value *> Data,
                                           ValueMapT &Map, Function **SubFnPtr) {
@@ -249,7 +223,7 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *Stride, AllocaInst *StructD
   UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 
-  extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
+  ParallelLoopGenerator::extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
                           Map);
   Builder.CreateBr(CheckNextBB);
 
@@ -286,4 +260,214 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *Stride, AllocaInst *StructD
   *SubFnPtr = SubFn;
 
   return IV;
+}
+
+Value *ParallelLoopGeneratorLOMP::createCallGlobalThreadNum(Value *loc) {
+   const std::string Name = "__kmpc_global_thread_num";
+   Function *F = M->getFunction(Name);
+
+   // If F is not available, declare it.
+   if (!F) {
+     StructType *identTy = M->getTypeByName("struct.ident_t");
+
+     GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+     Type *Params[] = {identTy->getPointerTo()};
+
+     FunctionType *Ty = FunctionType::get(Builder.getInt32Ty(), Params, false);
+     F = Function::Create(Ty, Linkage, Name, M);
+   }
+
+   Value *Args[] = {loc};
+   Value *retVal = Builder.CreateCall(F, Args);
+
+   return retVal;
+}
+
+void ParallelLoopGeneratorLOMP::createCallPushNumThreads(Value *loc, Value *id,
+                              Value *num_threads) {
+  const std::string Name = "__kmpc_push_num_threads";
+  Function *F = M->getFunction(Name);
+
+  // If F is not available, declare it.
+  if (!F) {
+    StructType *identTy = M->getTypeByName("struct.ident_t");
+
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+    Type *Params[] = {identTy->getPointerTo(),
+                      Builder.getInt32Ty(),
+                      Builder.getInt32Ty()};
+
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Value *Args[] = {loc, id, num_threads};
+
+  Builder.CreateCall(F, Args);
+}
+
+void ParallelLoopGeneratorLOMP::createCallStaticInit(Value *loc,
+                                                   Value *global_tid,
+                                                   Value *pIsLast, Value *pLB,
+                                                   Value *pUB, Value *pStride) {
+
+  bool is64bitArch = (LongType->getIntegerBitWidth() == 64);
+  const std::string Name = is64bitArch ? "__kmpc_for_static_init_8" :
+                                         "__kmpc_for_static_init_4";
+  Function *F = M->getFunction(Name);
+  StructType *identTy = M->getTypeByName("struct.ident_t");
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+
+    Type *Params[] = {identTy->getPointerTo(), Builder.getInt32Ty(),
+                      Builder.getInt32Ty(),
+                      Builder.getInt32Ty()->getPointerTo(),
+                      LongType->getPointerTo(),
+                      LongType->getPointerTo(),
+                      LongType->getPointerTo(),
+                      LongType, LongType};
+
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  // Static schedule
+  Value *schedule = Builder.getInt32(34);
+
+  Value *Args[] = {loc, global_tid, schedule, pIsLast, pLB, pUB, pStride,
+                   ConstantInt::get(LongType, 1), ConstantInt::get(LongType, 1)};
+
+  Builder.CreateCall(F, Args);
+}
+
+void ParallelLoopGeneratorLOMP::createCallStaticFini(Value *loc, Value *id) {
+  const std::string Name = "__kmpc_for_static_fini";
+  Function *F = M->getFunction(Name);
+  StructType *identTy = M->getTypeByName("struct.ident_t");
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+    Type *Params[] = {identTy->getPointerTo(), Builder.getInt32Ty()};
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Value *Args[] = {loc, id};
+
+  Builder.CreateCall(F, Args);
+}
+
+void ParallelLoopGeneratorLOMP::createCallDispatchInit(Value *loc,
+                                                   Value *global_tid,
+                                                   Value *Sched, Value *LB,
+                                                   Value *UB, Value *Inc,
+                                                   Value *Chunk) {
+
+  bool is64bitArch = (LongType->getIntegerBitWidth() == 64);
+  const std::string Name = is64bitArch ? "__kmpc_dispatch_init_8" :
+                                         "__kmpc_dispatch_init_4";
+  Function *F = M->getFunction(Name);
+  StructType *identTy = M->getTypeByName("struct.ident_t");
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+
+    Type *Params[] = {identTy->getPointerTo(), Builder.getInt32Ty(),
+                      Builder.getInt32Ty(), LongType, LongType,
+                      LongType, LongType};
+
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Value *Args[] = {loc, global_tid, Sched, LB, UB, Inc, Chunk};
+
+  Builder.CreateCall(F, Args);
+}
+
+Value *ParallelLoopGeneratorLOMP::createCallDispatchNext(Value *loc,
+                                                   Value *global_tid,
+                                                   Value *pIsLast, Value *pLB,
+                                                   Value *pUB, Value *pStride) {
+
+  bool is64bitArch = (LongType->getIntegerBitWidth() == 64);
+  const std::string Name = is64bitArch ? "__kmpc_dispatch_next_8" :
+                                         "__kmpc_dispatch_next_4";
+  Function *F = M->getFunction(Name);
+  StructType *identTy = M->getTypeByName("struct.ident_t");
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+
+    Type *Params[] = {identTy->getPointerTo(), Builder.getInt32Ty(),
+                      Builder.getInt32Ty()->getPointerTo(),
+                      LongType->getPointerTo(),
+                      LongType->getPointerTo(),
+                      LongType->getPointerTo()};
+
+    FunctionType *Ty = FunctionType::get(Builder.getInt32Ty(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Value *Args[] = {loc, global_tid, pIsLast, pLB, pUB, pStride};
+
+  Value *retVal = Builder.CreateCall(F, Args);
+  return retVal;
+}
+
+
+
+// FIXME: This function only creates a location dummy.
+GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation(Module *M) {
+  const std::string Name = ".loc.dummy";
+  GlobalVariable *dummy_src_loc = M->getGlobalVariable(Name);
+
+  if (dummy_src_loc == nullptr) {
+    StructType *identTy = M->getTypeByName("struct.ident_t");
+
+    // If the ident_t StructType is not available, declare it.
+    // in LLVM-IR: ident_t = type { i32, i32, i32, i32, i8* }
+    if (!identTy) {
+      Type *loc_members[] = {Builder.getInt32Ty(), Builder.getInt32Ty(),
+                             Builder.getInt32Ty(), Builder.getInt32Ty(),
+                             Builder.getInt8PtrTy() };
+
+      identTy = StructType::create(M->getContext(), loc_members,
+                                   "struct.ident_t", false);
+    }
+
+    int strLen = 23;
+    auto arrayType = llvm::ArrayType::get(Builder.getInt8Ty(), strLen);
+
+    // Global Variable Definitions
+    GlobalVariable* theString = new GlobalVariable(*M, arrayType, true,
+                            GlobalValue::PrivateLinkage, 0, ".str.ident");
+    theString->setAlignment(1);
+
+    dummy_src_loc = new GlobalVariable(*M, identTy, true,
+    GlobalValue::PrivateLinkage, nullptr, ".loc.dummy");
+    dummy_src_loc->setAlignment(8);
+
+    // Constant Definitions
+    Constant *locInit_str = ConstantDataArray::getString(M->getContext(),
+    "Source location dummy.", true);
+
+    Value *stringGEP = Builder.CreateInBoundsGEP(arrayType, theString,
+      {Builder.getInt32(0), Builder.getInt32(0)});
+
+    Constant *locInit_struct = ConstantStruct::get(identTy,
+      { Builder.getInt32(0), Builder.getInt32(0), Builder.getInt32(0),
+        Builder.getInt32(0), (Constant*) stringGEP});
+
+    // Initialize variables
+    theString->setInitializer(locInit_str);
+    dummy_src_loc->setInitializer(locInit_struct);
+  }
+
+  return dummy_src_loc;
 }

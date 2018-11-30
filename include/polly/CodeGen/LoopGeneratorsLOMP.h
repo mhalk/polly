@@ -74,7 +74,9 @@ public:
   /// Create a parallel loop generator for the current function.
   ParallelLoopGeneratorLOMP(PollyIRBuilder &Builder, LoopInfo &LI,
                         DominatorTree &DT, const DataLayout &DL)
-      : ParallelLoopGenerator(Builder, LI, DT, DL) {}
+      : ParallelLoopGenerator(Builder, LI, DT, DL) {
+        is64bitArch = (LongType->getIntegerBitWidth() == 64);
+      }
 
   /// Create a parallel loop.
   ///
@@ -96,6 +98,13 @@ public:
   Value *createParallelLoop(Value *LB, Value *UB, Value *Stride,
                             SetVector<Value *> &Values, ValueMapT &VMap,
                             BasicBlock::iterator *LoopBody);
+
+private:
+  /// True if 'LongType' is 64bit wide, otherwise: False.
+  bool is64bitArch;
+
+  /// The type of the schedule, used to execute the microtasks (0=STATIC, 1=DYN)
+  int ScheduleType;
 
 public:
   /// The functions below can be used if one does not want to generate a
@@ -163,6 +172,23 @@ public:
   Value *createSubFn(Value *Stride, AllocaInst *Struct,
                      SetVector<Value *> UsedValues, ValueMapT &VMap,
                      Function **SubFn);
+
+  Value *createCallGlobalThreadNum(Value *loc);
+
+  void createCallPushNumThreads(Value *loc, Value *id, Value *num_threads);
+
+  void createCallDispatchInit(Value *loc, Value *global_tid, Value *Sched,
+                              Value *LB, Value *UB, Value *Inc, Value *Chunk);
+
+  Value *createCallDispatchNext(Value *loc, Value *global_tid, Value *pIsLast,
+                                Value *pLB, Value *pUB, Value *pStride);
+
+  void createCallStaticInit(Value *loc, Value *global_tid, Value *pIsLast,
+                            Value *pLB, Value *pUB, Value *pStride);
+
+  void createCallStaticFini(Value *loc, Value *id);
+
+  GlobalVariable *createSourceLocation(Module *M);
 };
 } // end namespace polly
 #endif
