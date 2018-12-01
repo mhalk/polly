@@ -69,7 +69,7 @@ Value *ParallelLoopGeneratorLOMP::createParallelLoop(
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
 
-  AllocaInst *Struct = ParallelLoopGenerator::storeValuesIntoStruct(UsedValues);
+  AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
   Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
   *LoopBody = Builder.GetInsertPoint();
@@ -167,31 +167,52 @@ void ParallelLoopGeneratorLOMP::createCallCleanupThread() {
 
     FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
     F = Function::Create(Ty, Linkage, Name, M);
+
+    /**
+    // ToDo: kmpc adaption
+
+    // Place mandatory "fini" call in case of a static scheduling type.
+    if (ScheduleType == 0) { createCallStaticFini(Location, ID); }
+    **/
   }
 
   Builder.CreateCall(F, {});
 }
 
-Function *ParallelLoopGeneratorLOMP::createSubFnDefinition() {
-  Function *F = Builder.GetInsertBlock()->getParent();
+void ParallelLoopGeneratorLOMP::deployParallelExecution(Value *SubFn,
+                                                   Value *SubFnParam, Value *LB,
+                                                   Value *UB, Value *Stride) {
+  // Tell the runtime we start a parallel loop
+  createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
+  Builder.CreateCall(SubFn, SubFnParam);
+  createCallJoinThreads();
+}
+
+std::vector<Type *> ParallelLoopGeneratorLOMP::createSubFnParamList() {
   std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
-  FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
-  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
-                                     F->getName() + "_polly_subfn", M);
 
-  // Certain backends (e.g., NVPTX) do not support '.'s in function names.
-  // Hence, we ensure that all '.'s are replaced by '_'s.
-  std::string FunctionName = SubFn->getName();
-  std::replace(FunctionName.begin(), FunctionName.end(), '.', '_');
-  SubFn->setName(FunctionName);
+  /**
+  // ToDo: kmpc adaption
+  std::vector<Type *> Arguments(2, Builder.getInt32Ty()->getPointerTo());
+  Arguments.insert(Arguments.end(), 3, LongType);
+  Arguments.push_back(Builder.getInt8PtrTy());
+  **/
 
-  // Do not run any polly pass on the new function.
-  SubFn->addFnAttr(PollySkipFnAttr);
+  return Arguments;
+}
 
-  Function::arg_iterator AI = SubFn->arg_begin();
+void ParallelLoopGeneratorLOMP::createSubFnParamNames(Function::arg_iterator AI) {
   AI->setName("polly.par.userContext");
 
-  return SubFn;
+  /**
+  // ToDo: kmpc adaption
+  AI->setName("polly.kmpc.global_tid"); std::advance(AI, 1);
+  AI->setName("polly.kmpc.bound_tid"); std::advance(AI, 1);
+  AI->setName("polly.kmpc.lb"); std::advance(AI, 1);
+  AI->setName("polly.kmpc.ub"); std::advance(AI, 1);
+  AI->setName("polly.kmpc.inc"); std::advance(AI, 1);
+  AI->setName("polly.kmpc.shared");
+  **/
 }
 
 Value *ParallelLoopGeneratorLOMP::createSubFn(Value *Stride, AllocaInst *StructData,
@@ -223,7 +244,7 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *Stride, AllocaInst *StructD
   UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 
-  ParallelLoopGenerator::extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
+  extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
                           Map);
   Builder.CreateBr(CheckNextBB);
 

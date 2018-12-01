@@ -76,6 +76,7 @@ public:
                         DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {
         is64bitArch = (LongType->getIntegerBitWidth() == 64);
+        SourceLocationInfo = createSourceLocation(M);
       }
 
   /// Create a parallel loop.
@@ -106,6 +107,8 @@ private:
   /// The type of the schedule, used to execute the microtasks (0=STATIC, 1=DYN)
   int ScheduleType;
 
+  GlobalValue *SourceLocationInfo;
+
 public:
   /// The functions below can be used if one does not want to generate a
   /// specific OpenMP parallel loop, but generate individual parts of it
@@ -123,7 +126,20 @@ public:
                               Value *UB, Value *Stride);
 
   /// Create a runtime library call to join the worker threads.
+  // ToDo: Delete when switching to kmpc.
   void createCallJoinThreads();
+
+  /// Create the runtime library calls for spawn and join of the worker threads.
+  /// Additionally, place a call to the specified subfunction.
+  ///
+  /// @param SubFn      The subfunction which holds the loop body.
+  /// @param SubFnParam The parameter for the subfunction (basically the struct
+  ///                   filled with the outside values).
+  /// @param LB         The lower bound for the loop we parallelize.
+  /// @param UB         The upper bound for the loop we parallelize.
+  /// @param Stride     The stride of the loop we parallelize.
+  void deployParallelExecution(Value *SubFn, Value *SubFnParam,
+                               Value *LB, Value *UB, Value *Stride);
 
   /// Create a runtime library call to get the next work item.
   ///
@@ -139,24 +155,11 @@ public:
   ///       subfunction and only if the runtime system depends on it.
   void createCallCleanupThread();
 
-  /// Create a struct for all @p Values and store them in there.
-  ///
-  /// @param Values The values which should be stored in the struct.
-  ///
-  /// @return The created struct.
-  AllocaInst *storeValuesIntoStruct(SetVector<Value *> &Values);
+  /// Create the parameter definition for the parallel subfunction.
+  std::vector<Type *> createSubFnParamList();
 
-  /// Extract all values from the @p Struct and construct the mapping.
-  ///
-  /// @param Values The values which were stored in the struct.
-  /// @param Struct The struct holding all the values in @p Values.
-  /// @param VMap   A map to associate every element of @p Values with the
-  ///               new llvm value loaded from the @p Struct.
-  void extractValuesFromStruct(SetVector<Value *> Values, Type *Ty,
-                               Value *Struct, ValueMapT &VMap);
-
-  /// Create the definition of the parallel subfunction.
-  Function *createSubFnDefinition();
+  /// Name the parameters of the parallel subfunction.
+  void createSubFnParamNames(Function::arg_iterator AI);
 
   /// Create the parallel subfunction.
   ///

@@ -58,7 +58,7 @@ Value *ParallelLoopGeneratorGOMP::createParallelLoop(
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
 
-  AllocaInst *Struct = ParallelLoopGenerator::storeValuesIntoStruct(UsedValues);
+  AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
   Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
   *LoopBody = Builder.GetInsertPoint();
@@ -161,26 +161,22 @@ void ParallelLoopGeneratorGOMP::createCallCleanupThread() {
   Builder.CreateCall(F, {});
 }
 
-Function *ParallelLoopGeneratorGOMP::createSubFnDefinition() {
-  Function *F = Builder.GetInsertBlock()->getParent();
+void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
+                                                   Value *SubFnParam, Value *LB,
+                                                   Value *UB, Value *Stride) {
+  // Tell the runtime we start a parallel loop
+  createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
+  Builder.CreateCall(SubFn, SubFnParam);
+  createCallJoinThreads();
+}
+
+std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() {
   std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
-  FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
-  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
-                                     F->getName() + "_polly_subfn", M);
+  return Arguments;
+}
 
-  // Certain backends (e.g., NVPTX) do not support '.'s in function names.
-  // Hence, we ensure that all '.'s are replaced by '_'s.
-  std::string FunctionName = SubFn->getName();
-  std::replace(FunctionName.begin(), FunctionName.end(), '.', '_');
-  SubFn->setName(FunctionName);
-
-  // Do not run any polly pass on the new function.
-  SubFn->addFnAttr(PollySkipFnAttr);
-
-  Function::arg_iterator AI = SubFn->arg_begin();
+void ParallelLoopGeneratorGOMP::createSubFnParamNames(Function::arg_iterator AI) {
   AI->setName("polly.par.userContext");
-
-  return SubFn;
 }
 
 Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
@@ -212,9 +208,8 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructD
   UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 
-  ParallelLoopGenerator::extractValuesFromStruct(Data,
-                                                 StructData->getAllocatedType(),
-                                                 UserContext, Map);
+  extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
+                          Map);
   Builder.CreateBr(CheckNextBB);
 
   // Add code to check if another set of iterations will be executed.

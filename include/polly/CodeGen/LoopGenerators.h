@@ -150,11 +150,7 @@ protected:
   Module *M;
 
 public:
-  /// The functions below can be used if one does not want to generate a
-  /// specific OpenMP parallel loop, but generate individual parts of it
-  /// (e.g., the subfunction definition).
-
-  /// Create a runtime library call to spawn the worker threads.
+  /// Create a runtime library call to join the worker threads.
   ///
   /// @param SubFn      The subfunction which holds the loop body.
   /// @param SubFnParam The parameter for the subfunction (basically the struct
@@ -162,11 +158,8 @@ public:
   /// @param LB         The lower bound for the loop we parallelize.
   /// @param UB         The upper bound for the loop we parallelize.
   /// @param Stride     The stride of the loop we parallelize.
-  virtual void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
-                              Value *UB, Value *Stride) = 0;
-
-  /// Create a runtime library call to join the worker threads.
-  virtual void createCallJoinThreads() = 0;
+  virtual void deployParallelExecution(Value *SubFn, Value *SubFnParam,
+                                       Value *LB, Value *UB, Value *Stride) = 0;
 
   /// Create a runtime library call to get the next work item.
   ///
@@ -201,6 +194,14 @@ public:
   /// Create the definition of the parallel subfunction.
   Function *createSubFnDefinition();
 
+  /// Create the parameter definition for the parallel subfunction.
+  virtual std::vector<Type *> createSubFnParamList() = 0;
+
+  /// Name the parameters of the parallel subfunction.
+  ///
+  /// @param AI An interator which points at the first argument to name.
+  virtual void createSubFnParamNames(Function::arg_iterator AI) = 0;
+
   /// Create the parallel subfunction.
   ///
   /// @param Stride The induction variable increment.
@@ -212,9 +213,9 @@ public:
   /// @param SubFn  The newly created subfunction is returned here.
   ///
   /// @return The newly created induction variable.
-  Value *createSubFn(Value *Stride, AllocaInst *Struct,
+  virtual Value *createSubFn(Value *Stride, AllocaInst *Struct,
                      SetVector<Value *> UsedValues, ValueMapT &VMap,
-                     Function **SubFn);
+                     Function **SubFn) = 0;
 };
 } // end namespace polly
 #endif
