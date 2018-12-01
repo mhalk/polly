@@ -53,31 +53,6 @@ static cl::opt<int>
 // We expect the type of UB, LB, UB+Stride to be large enough for values that
 // UB may take throughout the execution of the loop, including the computation
 // of indvar + Stride before the final abort.
-Value *ParallelLoopGeneratorGOMP::createParallelLoop(
-    Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
-    ValueMapT &Map, BasicBlock::iterator *LoopBody) {
-  Function *SubFn;
-
-  AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
-  BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
-  Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
-  *LoopBody = Builder.GetInsertPoint();
-  Builder.SetInsertPoint(&*BeforeLoop);
-
-  Value *SubFnParam = Builder.CreateBitCast(Struct, Builder.getInt8PtrTy(),
-                                            "polly.par.userContext");
-
-  // Add one as the upper bound provided by OpenMP is a < comparison
-  // whereas the codegenForSequential function creates a <= comparison.
-  UB = Builder.CreateAdd(UB, ConstantInt::get(LongType, 1));
-
-  // Tell the runtime we start a parallel loop
-  createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
-  Builder.CreateCall(SubFn, SubFnParam);
-  createCallJoinThreads();
-
-  return IV;
-}
 
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                    Value *SubFnParam, Value *LB,

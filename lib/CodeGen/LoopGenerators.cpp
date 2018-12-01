@@ -169,43 +169,6 @@ Value *ParallelLoopGenerator::createParallelLoop(
   return IV;
 }
 
-Value *ParallelLoopGenerator::createCallGetWorkItem(Value *LBPtr,
-                                                    Value *UBPtr) {
-  const std::string Name = "GOMP_loop_runtime_next";
-
-  Function *F = M->getFunction(Name);
-
-  // If F is not available, declare it.
-  if (!F) {
-    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-    Type *Params[] = {LongType->getPointerTo(), LongType->getPointerTo()};
-    FunctionType *Ty = FunctionType::get(Builder.getInt8Ty(), Params, false);
-    F = Function::Create(Ty, Linkage, Name, M);
-  }
-
-  Value *Args[] = {LBPtr, UBPtr};
-  Value *Return = Builder.CreateCall(F, Args);
-  Return = Builder.CreateICmpNE(
-      Return, Builder.CreateZExt(Builder.getFalse(), Return->getType()));
-  return Return;
-}
-
-void ParallelLoopGenerator::createCallCleanupThread() {
-  const std::string Name = "GOMP_loop_end_nowait";
-
-  Function *F = M->getFunction(Name);
-
-  // If F is not available, declare it.
-  if (!F) {
-    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-
-    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
-    F = Function::Create(Ty, Linkage, Name, M);
-  }
-
-  Builder.CreateCall(F, {});
-}
-
 Function *ParallelLoopGenerator::createSubFnDefinition() {
   Function *F = Builder.GetInsertBlock()->getParent();
   std::vector<Type *> Arguments = createSubFnParamList();
