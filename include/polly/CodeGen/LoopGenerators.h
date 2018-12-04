@@ -150,17 +150,6 @@ protected:
   Module *M;
 
 public:
-  /// Create a runtime library call to join the worker threads.
-  ///
-  /// @param SubFn      The subfunction which holds the loop body.
-  /// @param SubFnParam The parameter for the subfunction (basically the struct
-  ///                   filled with the outside values).
-  /// @param LB         The lower bound for the loop we parallelize.
-  /// @param UB         The upper bound for the loop we parallelize.
-  /// @param Stride     The stride of the loop we parallelize.
-  virtual void deployParallelExecution(Value *SubFn, Value *SubFnParam,
-                                       Value *LB, Value *UB, Value *Stride) = 0;
-
   /// Create a struct for all @p Values and store them in there.
   ///
   /// @param Values The values which should be stored in the struct.
@@ -178,7 +167,21 @@ public:
                                Value *Struct, ValueMapT &VMap);
 
   /// Create the definition of the parallel subfunction.
+  ///
+  /// @return A vector containing the types of the subfunction's argument(s).
   Function *createSubFnDefinition();
+
+  /// Create the runtime library calls for spawn and join of the worker threads.
+  /// Additionally, places a call to the specified subfunction.
+  ///
+  /// @param SubFn      The subfunction which holds the loop body.
+  /// @param SubFnParam The parameter for the subfunction (basically the struct
+  ///                   filled with the outside values).
+  /// @param LB         The lower bound for the loop we parallelize.
+  /// @param UB         The upper bound for the loop we parallelize.
+  /// @param Stride     The stride of the loop we parallelize.
+  virtual void deployParallelExecution(Value *SubFn, Value *SubFnParam,
+                                       Value *LB, Value *UB, Value *Stride) = 0;
 
   /// Create the parameter definition for the parallel subfunction.
   virtual std::vector<Type *> createSubFnParamList() = 0;

@@ -102,8 +102,8 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
     cl::desc("The size of the first level cache line size specified in bytes."),
     cl::Hidden, cl::init(64), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-static cl::opt<int> PollyOmpFlavor("polly-omp-flavor",
-    cl::desc("Choose which OpenMP library shall be used. (0=GCC, 1=LLVM)"),
+static cl::opt<int> PollyOmpBackend("polly-omp-backend",
+    cl::desc("Choose the OpenMP library to use. (0: 'GNU' (default) or 1: 'LLVM')"),
     cl::Hidden, cl::init(0), cl::ZeroOrMore, cl::cat(PollyCategory));
 
 isl::ast_expr IslNodeBuilder::getUpperBound(isl::ast_node For,
@@ -678,19 +678,17 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
 
   ParallelLoopGenerator *ParallelLoopGenPtr;
 
-  switch (PollyOmpFlavor) {
+  switch (PollyOmpBackend) {
     case 0:
     default:
-      printf("Polly-OMP-Flavor: GNU-8.\n");
+      printf("Polly-OMP-Backend: GNU-8.\n");
       ParallelLoopGenPtr = new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL);
       break;
     case 1:
-      printf("Polly-OMP-Flavor: LLVM-8.\n");
+      printf("Polly-OMP-Backend: LLVM-8.\n");
       ParallelLoopGenPtr = new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL);
       break;
   }
-
-  // ParallelLoopGenerator ParallelLoopGen = *ParallelLoopGenPtr;
 
   IV = ParallelLoopGenPtr->createParallelLoop(ValueLB, ValueUB, ValueInc,
                                           SubtreeValues, NewValues, &LoopBody);

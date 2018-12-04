@@ -76,27 +76,6 @@ public:
                         DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {}
 
-  /// Create a parallel loop.
-  ///
-  /// This function is the main function to automatically generate a parallel
-  /// loop with all its components.
-  ///
-  /// @param LB        The lower bound for the loop we parallelize.
-  /// @param UB        The upper bound for the loop we parallelize.
-  /// @param Stride    The stride of the loop we parallelize.
-  /// @param Values    A set of LLVM-IR Values that should be available in
-  ///                  the new loop body.
-  /// @param VMap      A map to allow outside access to the new versions of
-  ///                  the values in @p Values.
-  /// @param LoopBody  A pointer to an iterator that is set to point to the
-  ///                  body of the created loop. It should be used to insert
-  ///                  instructions that form the actual loop body.
-  ///
-  /// @return The newly created induction variable for this loop.
-  Value *createParallelLoop(Value *LB, Value *UB, Value *Stride,
-                            SetVector<Value *> &Values, ValueMapT &VMap,
-                            BasicBlock::iterator *LoopBody);
-
 public:
   /// The functions below can be used if one does not want to generate a
   /// specific OpenMP parallel loop, but generate individual parts of it
@@ -113,11 +92,8 @@ public:
   void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
                               Value *UB, Value *Stride);
 
-  /// Create a runtime library call to join the worker threads.
-  void createCallJoinThreads();
-
   /// Create the runtime library calls for spawn and join of the worker threads.
-  /// Additionally, place a call to the specified subfunction.
+  /// Additionally, places a call to the specified subfunction.
   ///
   /// @param SubFn      The subfunction which holds the loop body.
   /// @param SubFnParam The parameter for the subfunction (basically the struct
@@ -128,24 +104,12 @@ public:
   void deployParallelExecution(Value *SubFn, Value *SubFnParam,
                                Value *LB, Value *UB, Value *Stride);
 
-  /// Create a runtime library call to get the next work item.
-  ///
-  /// @param LBPtr A pointer value to store the work item begin in.
-  /// @param UBPtr A pointer value to store the work item end in.
-  ///
-  /// @returns A true value if the work item is not empty.
-  Value *createCallGetWorkItem(Value *LBPtr, Value *UBPtr);
-
-  /// Create a runtime library call to allow cleanup of the thread.
-  ///
-  /// @note This function is called right before the thread will exit the
-  ///       subfunction and only if the runtime system depends on it.
-  void createCallCleanupThread();
-
   /// Create the parameter definition for the parallel subfunction.
   std::vector<Type *> createSubFnParamList();
 
   /// Name the parameters of the parallel subfunction.
+  ///
+  /// @return A vector containing the types of the subfunction's argument(s).
   void createSubFnParamNames(Function::arg_iterator AI);
 
   /// Create the parallel subfunction.
@@ -162,6 +126,23 @@ public:
   Value *createSubFn(Value *Stride, AllocaInst *Struct,
                      SetVector<Value *> UsedValues, ValueMapT &VMap,
                      Function **SubFn);
+
+  /// Create a runtime library call to join the worker threads.
+  void createCallJoinThreads();
+
+  /// Create a runtime library call to get the next work item.
+  ///
+  /// @param LBPtr A pointer value to store the work item begin in.
+  /// @param UBPtr A pointer value to store the work item end in.
+  ///
+  /// @returns A true value if the work item is not empty.
+  Value *createCallGetWorkItem(Value *LBPtr, Value *UBPtr);
+
+  /// Create a runtime library call to allow cleanup of the thread.
+  ///
+  /// @note This function is called right before the thread will exit the
+  ///       subfunction and only if the runtime system depends on it.
+  void createCallCleanupThread();
 };
 } // end namespace polly
 #endif

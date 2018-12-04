@@ -25,7 +25,7 @@ using namespace llvm;
 using namespace polly;
 
 static cl::opt<int>
-    PollyNumThreads("polly-num-threads-gomp",
+    PollyNumThreads("polly-gomp-num-threads",
                     cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
                     cl::init(0));
 
@@ -81,59 +81,6 @@ void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
   Value *Args[] = {SubFn, SubFnParam, NumberOfThreads, LB, UB, Stride};
 
   Builder.CreateCall(F, Args);
-}
-
-Value *ParallelLoopGeneratorGOMP::createCallGetWorkItem(Value *LBPtr,
-                                                    Value *UBPtr) {
-  const std::string Name = "GOMP_loop_runtime_next";
-
-  Function *F = M->getFunction(Name);
-
-  // If F is not available, declare it.
-  if (!F) {
-    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-    Type *Params[] = {LongType->getPointerTo(), LongType->getPointerTo()};
-    FunctionType *Ty = FunctionType::get(Builder.getInt8Ty(), Params, false);
-    F = Function::Create(Ty, Linkage, Name, M);
-  }
-
-  Value *Args[] = {LBPtr, UBPtr};
-  Value *Return = Builder.CreateCall(F, Args);
-  Return = Builder.CreateICmpNE(
-      Return, Builder.CreateZExt(Builder.getFalse(), Return->getType()));
-  return Return;
-}
-
-void ParallelLoopGeneratorGOMP::createCallJoinThreads() {
-  const std::string Name = "GOMP_parallel_end";
-
-  Function *F = M->getFunction(Name);
-
-  // If F is not available, declare it.
-  if (!F) {
-    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-
-    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
-    F = Function::Create(Ty, Linkage, Name, M);
-  }
-
-  Builder.CreateCall(F, {});
-}
-
-void ParallelLoopGeneratorGOMP::createCallCleanupThread() {
-  const std::string Name = "GOMP_loop_end_nowait";
-
-  Function *F = M->getFunction(Name);
-
-  // If F is not available, declare it.
-  if (!F) {
-    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
-
-    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
-    F = Function::Create(Ty, Linkage, Name, M);
-  }
-
-  Builder.CreateCall(F, {});
 }
 
 void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
@@ -220,4 +167,57 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructD
   *SubFnPtr = SubFn;
 
   return IV;
+}
+
+Value *ParallelLoopGeneratorGOMP::createCallGetWorkItem(Value *LBPtr,
+                                                    Value *UBPtr) {
+  const std::string Name = "GOMP_loop_runtime_next";
+
+  Function *F = M->getFunction(Name);
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+    Type *Params[] = {LongType->getPointerTo(), LongType->getPointerTo()};
+    FunctionType *Ty = FunctionType::get(Builder.getInt8Ty(), Params, false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Value *Args[] = {LBPtr, UBPtr};
+  Value *Return = Builder.CreateCall(F, Args);
+  Return = Builder.CreateICmpNE(
+      Return, Builder.CreateZExt(Builder.getFalse(), Return->getType()));
+  return Return;
+}
+
+void ParallelLoopGeneratorGOMP::createCallJoinThreads() {
+  const std::string Name = "GOMP_parallel_end";
+
+  Function *F = M->getFunction(Name);
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Builder.CreateCall(F, {});
+}
+
+void ParallelLoopGeneratorGOMP::createCallCleanupThread() {
+  const std::string Name = "GOMP_loop_end_nowait";
+
+  Function *F = M->getFunction(Name);
+
+  // If F is not available, declare it.
+  if (!F) {
+    GlobalValue::LinkageTypes Linkage = Function::ExternalLinkage;
+
+    FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), false);
+    F = Function::Create(Ty, Linkage, Name, M);
+  }
+
+  Builder.CreateCall(F, {});
 }

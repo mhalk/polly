@@ -25,20 +25,19 @@ using namespace llvm;
 using namespace polly;
 
 static cl::opt<int>
-    PollyNumThreads("polly-num-threads-lomp",
+    PollyNumThreads("polly-lomp-num-threads",
                     cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
                     cl::init(0));
 
 static cl::opt<int>
     PollyScheduling("polly-lomp-scheduling",
-                    cl::desc("Int representation of the KMPC scheduling"),
+                    cl::desc("Integer representation of the KMPC scheduling"),
                     cl::Hidden, cl::init(34));
 
 static cl::opt<int>
     PollyChunkSize("polly-lomp-chunksize",
                     cl::desc("Chunksize to use by the KMPC runtime calls"),
                     cl::Hidden, cl::init(1));
-
 
 // We generate a loop of either of the following structures:
 //
@@ -141,7 +140,7 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *StrideNotUsed,
                                           ValueMapT &Map, Function **SubFnPtr) {
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *IDPtr, *ID, *IV, *pIsLast, *pStride;
-  Value *Sched, *LB, *UB, *Stride, *Shared, *Chunk, *hasWork, *hasIteration;
+  Value *LB, *UB, *Stride, *Shared, *Chunk, *hasWork, *hasIteration;
   Value *adjUB;
 
   Function *SubFn = createSubFnDefinition();
@@ -198,13 +197,12 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *StrideNotUsed,
   adjUB = Builder.CreateAdd(UB, ConstantInt::get(LongType, -1),
                                     "polly.indvar.UBAdjusted");
 
-  Sched = Builder.getInt32(PollyScheduling);
   Chunk = ConstantInt::get(LongType, chunksize);
 
-  if (ScheduleType) {
+  if (isDynamicSchedule) {
     // "DYNAMIC" scheduling types are handled below
     UB = adjUB;
-    createCallDispatchInit(ID, Sched, LB, UB, Stride, Chunk);
+    createCallDispatchInit(ID, LB, UB, Stride, Chunk);
     hasWork = createCallDispatchNext(ID, pIsLast, LBPtr, UBPtr, pStride);
     hasIteration = Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ,
                           hasWork, Builder.getInt32(1), "polly.hasIteration");
@@ -251,7 +249,7 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *StrideNotUsed,
 
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
-  if (ScheduleType == 0) { createCallStaticFini(ID); }
+  if (!isDynamicSchedule) { createCallStaticFini(ID); }
   Builder.CreateRetVoid();
 
   Builder.SetInsertPoint(&*LoopBody);
@@ -281,7 +279,7 @@ Value *ParallelLoopGeneratorLOMP::createCallGlobalThreadNum() {
    return retVal;
 }
 
-void ParallelLoopGeneratorLOMP::createCallPushNumThreads(Value *id,
+void ParallelLoopGeneratorLOMP::createCallPushNumThreads(Value *global_tid,
                                                          Value *num_threads) {
   const std::string Name = "__kmpc_push_num_threads";
   Function *F = M->getFunction(Name);
@@ -299,7 +297,7 @@ void ParallelLoopGeneratorLOMP::createCallPushNumThreads(Value *id,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {SourceLocationInfo, id, num_threads};
+  Value *Args[] = {SourceLocationInfo, global_tid, num_threads};
 
   Builder.CreateCall(F, Args);
 }
@@ -329,16 +327,14 @@ void ParallelLoopGeneratorLOMP::createCallStaticInit(Value *global_tid,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  // Static schedule
-  Value *schedule = Builder.getInt32(34);
-
-  Value *Args[] = {SourceLocationInfo, global_tid, schedule, pIsLast, pLB, pUB, pStride,
-                   ConstantInt::get(LongType, 1), ConstantInt::get(LongType, 1)};
+  Value *Args[] = {SourceLocationInfo, global_tid, ScheduleType, pIsLast,
+                   pLB, pUB, pStride, ConstantInt::get(LongType, 1),
+                   ConstantInt::get(LongType, 1)};
 
   Builder.CreateCall(F, Args);
 }
 
-void ParallelLoopGeneratorLOMP::createCallStaticFini(Value *id) {
+void ParallelLoopGeneratorLOMP::createCallStaticFini(Value *global_tid) {
   const std::string Name = "__kmpc_for_static_fini";
   Function *F = M->getFunction(Name);
   StructType *identTy = M->getTypeByName("struct.ident_t");
@@ -351,15 +347,14 @@ void ParallelLoopGeneratorLOMP::createCallStaticFini(Value *id) {
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {SourceLocationInfo, id};
+  Value *Args[] = {SourceLocationInfo, global_tid};
 
   Builder.CreateCall(F, Args);
 }
 
 void ParallelLoopGeneratorLOMP::createCallDispatchInit(Value *global_tid,
-                                                   Value *Sched, Value *LB,
-                                                   Value *UB, Value *Inc,
-                                                   Value *Chunk) {
+                                                   Value *LB, Value *UB,
+                                                   Value *Inc, Value *Chunk) {
 
   const std::string Name = is64bitArch ? "__kmpc_dispatch_init_8" :
                                          "__kmpc_dispatch_init_4";
@@ -378,7 +373,8 @@ void ParallelLoopGeneratorLOMP::createCallDispatchInit(Value *global_tid,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {SourceLocationInfo, global_tid, Sched, LB, UB, Inc, Chunk};
+  Value *Args[] = {SourceLocationInfo, global_tid, ScheduleType,
+                   LB, UB, Inc, Chunk};
 
   Builder.CreateCall(F, Args);
 }
@@ -412,10 +408,8 @@ Value *ParallelLoopGeneratorLOMP::createCallDispatchNext(Value *global_tid,
   return retVal;
 }
 
-
-
-// FIXME: This function only creates a location dummy.
-GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation(Module *M) {
+// FIXME: This function only creates a source location dummy.
+GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation() {
   const std::string Name = ".loc.dummy";
   GlobalVariable *dummy_src_loc = M->getGlobalVariable(Name);
 
@@ -462,4 +456,28 @@ GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation(Module *M) {
   }
 
   return dummy_src_loc;
+}
+
+void ParallelLoopGeneratorLOMP::collectSchedulingInfo() {
+  ScheduleType = Builder.getInt32(PollyScheduling);
+
+  // Find out which _init/_next/_fini functions to use
+  switch (PollyScheduling) {
+    default:
+    case 33: // kmp_sch_static_chunked
+    case 34: // kmp_sch_static
+    case 40: // kmp_sch_static_greedy
+    case 41: // kmp_sch_static_balanced
+    case 44: // kmp_sch_static_steal
+    case 45: // kmp_sch_static_balanced_chunked
+      isDynamicSchedule = false;
+      break;
+    case 35: // kmp_sch_dynamic_chunked
+    case 36: // kmp_sch_guided_chunked
+    case 39: // kmp_sch_trapezoidal
+    case 42: // kmp_sch_guided_iterative_chunked
+    case 43: // kmp_sch_guided_analytical_chunked
+      isDynamicSchedule = true;
+      break;
+  }
 }
