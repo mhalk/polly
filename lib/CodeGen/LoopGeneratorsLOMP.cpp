@@ -25,11 +25,6 @@ using namespace llvm;
 using namespace polly;
 
 static cl::opt<int>
-    PollyNumThreads("polly-lomp-num-threads",
-                    cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
-                    cl::init(0));
-
-static cl::opt<int>
     PollyScheduling("polly-lomp-scheduling",
                     cl::desc("Integer representation of the KMPC scheduling"),
                     cl::Hidden, cl::init(34));
@@ -106,15 +101,15 @@ void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
 void ParallelLoopGeneratorLOMP::deployParallelExecution(Value *SubFn,
                                                    Value *SubFnParam, Value *LB,
                                                    Value *UB, Value *Stride) {
-  // Inform OpenMP runtime about the number of threads
-  if (PollyNumThreads > 0) {
+
+  // Inform OpenMP runtime about the number of threads if non-zero
+  if (!(NumberOfThreads->isZero())) {
     Value *gtid = createCallGlobalThreadNum();
-    createCallPushNumThreads(gtid, Builder.getInt32(PollyNumThreads));
+    createCallPushNumThreads(gtid, NumberOfThreads);
   }
 
   // Tell the runtime we start a parallel loop
   createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
-  // Builder.CreateCall(SubFn, SubFnParam); // ToDo: Check!
 }
 
 std::vector<Type *> ParallelLoopGeneratorLOMP::createSubFnParamList() {
@@ -219,7 +214,7 @@ Value *ParallelLoopGeneratorLOMP::createSubFn(Value *StrideNotUsed,
     UB = Builder.CreateAlignedLoad(UBPtr, align, "polly.indvar.UB");
   } else {
     // "STATIC" scheduling types are handled below
-    createCallStaticInit(ID, pIsLast, LBPtr, UBPtr, pStride);
+    createCallStaticInit(ID, pIsLast, LBPtr, UBPtr, pStride, Chunk);
 
     LB = Builder.CreateAlignedLoad(LBPtr, align, "polly.indvar.init");
     UB = Builder.CreateAlignedLoad(UBPtr, align, "polly.indvar.UB");
@@ -304,7 +299,8 @@ void ParallelLoopGeneratorLOMP::createCallPushNumThreads(Value *global_tid,
 
 void ParallelLoopGeneratorLOMP::createCallStaticInit(Value *global_tid,
                                                    Value *pIsLast, Value *pLB,
-                                                   Value *pUB, Value *pStride) {
+                                                   Value *pUB, Value *pStride,
+                                                   Value *Chunk) {
 
   const std::string Name = is64bitArch ? "__kmpc_for_static_init_8" :
                                          "__kmpc_for_static_init_4";
@@ -329,7 +325,7 @@ void ParallelLoopGeneratorLOMP::createCallStaticInit(Value *global_tid,
 
   Value *Args[] = {SourceLocationInfo, global_tid, ScheduleType, pIsLast,
                    pLB, pUB, pStride, ConstantInt::get(LongType, 1),
-                   ConstantInt::get(LongType, 1)};
+                   Chunk};
 
   Builder.CreateCall(F, Args);
 }

@@ -195,8 +195,9 @@ public:
   /// @param pLB         Pointer to the lower bound for the next chunk of work.
   /// @param pUB         Pointer to the upper bound for the next chunk of work.
   /// @param pStride     Pointer to the stride for the next chunk of work.
-  void createCallStaticInit(Value *global_tid, Value *pIsLast,
-                            Value *pLB, Value *pUB, Value *pStride);
+  /// @param Chunk       The chunk size of the parallel loop.
+  void createCallStaticInit(Value *global_tid, Value *pIsLast, Value *pLB,
+                            Value *pUB, Value *pStride, Value *Chunk);
 
   /// Create a runtime library call to mark the end of
   /// a statically scheduled loop.

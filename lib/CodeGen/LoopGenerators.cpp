@@ -149,6 +149,7 @@ Value *ParallelLoopGenerator::createParallelLoop(
     Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
+  NumberOfThreads = Builder.getInt32(PollyNumThreads);
 
   AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();

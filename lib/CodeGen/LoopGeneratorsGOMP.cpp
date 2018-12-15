@@ -24,11 +24,6 @@
 using namespace llvm;
 using namespace polly;
 
-static cl::opt<int>
-    PollyNumThreads("polly-gomp-num-threads",
-                    cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
-                    cl::init(0));
-
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB
@@ -77,7 +72,6 @@ void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *NumberOfThreads = Builder.getInt32(PollyNumThreads);
   Value *Args[] = {SubFn, SubFnParam, NumberOfThreads, LB, UB, Stride};
 
   Builder.CreateCall(F, Args);
