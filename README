@@ -10,3 +10,31 @@ optimal loop structure. These transformations can be used to do constant
 propagation through arrays, remove dead loop iterations, optimize loops for
 cache locality, optimize arrays, apply advanced automatic parallelization, drive
 vectorization, or they can be used to do software pipelining.
+
+
+Alternative LLVM OpenMP backend
+-------------------------------
+
+Information:
+  This implementation is based on the current version [f203c68 (2018-Nov-9)] of Polly.
+
+Usage:
+  The CL switch "polly-omp-backend" allows to choose the OpenMP-backend.
+    0: GNU OpenMP (default)
+    1: LLVM OpenMP
+  
+The LLVM OpenMP backend can be further influenced using the following CL switches:
+  "polly-num-threads": Number of threads to use
+  (default: 0 = auto/OMP runtime)
+  "polly-lomp-scheduling": Int representation of the LLVM OpenMP scheduling
+  (default: 34 = kmp_sch_static) (Note: this is subject to change -- to string)
+  "polly-lomp-chunksize": Chunksize to use by the LLVM OpenMP runtime calls
+  (default: 1)
+    
+  Example: Use alternative backend with dynamic scheduling (kmp_sch_dynamic_chunked),
+  chunksize 1 and 4 threads.
+  "-mllvm -polly-omp-backend=1 -mllvm -polly-num-threads=4 -mllvm
+  -polly-lomp-chunksize=1 -mllvm -polly-lomp-scheduling=35"
+
+Known issues:
+  The "loc struct" is only a dummy and therefore does not provide any useful info.
