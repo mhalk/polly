@@ -16,7 +16,7 @@ Alternative LLVM OpenMP backend
 -------------------------------
 
 Information:
-  This implementation is based on the current version [f203c68 (2018-Nov-9)] of Polly.
+  This implementation is based on the current version [1dad8c9 (2019-JAN-15)] of Polly.
 
 Usage:
   The CL switch "polly-omp-backend" allows to choose the OpenMP-backend.
