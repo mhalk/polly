@@ -25,7 +25,7 @@ using namespace polly;
 static cl::opt<int>
     PollyNumThreads("polly-num-threads",
                     cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
-                    cl::init(0));
+                    cl::init(0), cl::cat(PollyCategory));
 
 // We generate a loop of either of the following structures:
 //

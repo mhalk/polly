@@ -110,7 +110,7 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
 
 static cl::opt<int> PollyOmpBackend("polly-omp-backend",
     cl::desc("Choose the OpenMP library to use. (0: 'GNU' (default) or 1: 'LLVM')"),
-    cl::Hidden, cl::init(0), cl::ZeroOrMore, cl::cat(PollyCategory));
+    cl::Hidden, cl::init(0), cl::Optional, cl::cat(PollyCategory));
 
 /*
 static cl::opt<OpenMPBackend> PollyOmpBackend("polly-omp-backend",

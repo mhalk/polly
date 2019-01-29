@@ -14,6 +14,7 @@
 #ifndef POLLY_LOOP_GENERATORS_LOMP_H
 #define POLLY_LOOP_GENERATORS_LOMP_H
 
+#include "polly/Options.h"
 #include "polly/CodeGen/IRBuilder.h"
 #include "polly/Support/ScopHelper.h"
 

@@ -1,9 +1,8 @@
 //===------ LoopGeneratorsLOMP.cpp -  IR helper to create loops ---------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -47,12 +46,14 @@ static cl::opt<SchedulingType>
 static cl::opt<int>
     PollyScheduling("polly-lomp-scheduling",
                     cl::desc("Integer representation of the KMPC scheduling"),
-                    cl::Hidden, cl::init(34));
+                    cl::Hidden, cl::init(34), cl::Optional,
+                    cl::cat(PollyCategory));
 
 static cl::opt<int>
     PollyChunkSize("polly-lomp-chunksize",
                     cl::desc("Chunksize to use by the KMPC runtime calls"),
-                    cl::Hidden, cl::init(1));
+                    cl::Hidden, cl::init(1), cl::Optional,
+                    cl::cat(PollyCategory));
 
 // We generate a loop of either of the following structures:
 //
