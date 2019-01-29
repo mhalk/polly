@@ -1,4 +1,4 @@
-//===------ LoopGenerators.cpp -  IR helper to create loops ---------------===//
+//===------ LoopGeneratorsLOMP.cpp -  IR helper to create loops ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -23,6 +23,26 @@
 
 using namespace llvm;
 using namespace polly;
+
+/// Scheduling types of parallel OMP for loops.
+/// (Subset taken from OpenMP's enum in kmp.h: sched_type)
+enum SchedulingType {
+  kmp_sch_static_chunked = 33,
+  kmp_sch_static = 34, /**< static unspecialized */
+  kmp_sch_dynamic_chunked = 35,
+  kmp_sch_guided_chunked = 36 /**< guided unspecialized */
+};
+
+/*
+static cl::opt<SchedulingType>
+    PollyScheduling("polly-lomp-scheduling",
+      cl::desc("Scheduling type of parallel OMP for loops"),
+      cl::values(clEnumVal(kmp_sch_static_chunked, "Static chunked"),
+        clEnumVal(kmp_sch_static, "Static unspecialized (default)"),
+        clEnumVal(kmp_sch_dynamic_chunked, "Dynamic chunked"),
+        clEnumVal(kmp_sch_guided_chunked, "Guided chunked (Static + Dynamic)")),
+      cl::Hidden, cl::init(kmp_sch_static));
+*/
 
 static cl::opt<int>
     PollyScheduling("polly-lomp-scheduling",
@@ -455,6 +475,11 @@ GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation() {
 }
 
 void ParallelLoopGeneratorLOMP::collectSchedulingInfo() {
+  // Store information so it is available later on
+  // 33: kmp_sch_static_chunked, 34: kmp_sch_static
+  // 35: kmp_sch_dynamic_chunked, 36: kmp_sch_guided_chunked
+  // isDynamicSchedule =
+  //  (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) ? false : true;
   ScheduleType = Builder.getInt32(PollyScheduling);
 
   // Find out which _init/_next/_fini functions to use

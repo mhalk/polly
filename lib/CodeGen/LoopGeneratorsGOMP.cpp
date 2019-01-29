@@ -1,4 +1,4 @@
-//===------ LoopGenerators.cpp -  IR helper to create loops ---------------===//
+//===------ LoopGeneratorsGOMP.cpp -  IR helper to create loops ---------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //

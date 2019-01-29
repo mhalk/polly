@@ -82,6 +82,13 @@ STATISTIC(ParallelLoops, "Number of generated parallel for-loops");
 STATISTIC(VectorLoops, "Number of generated vector for-loops");
 STATISTIC(IfConditions, "Number of generated if-conditions");
 
+/// Scheduling types of parallel OMP for loops.
+/// (Subset taken from OpenMP's enum in kmp.h: sched_type)
+enum OpenMPBackend {
+  GNU = 0,
+  LLVM = 1
+};
+
 static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
     cl::desc("Emit code that prints the runtime check result dynamically."),
@@ -104,6 +111,14 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
 static cl::opt<int> PollyOmpBackend("polly-omp-backend",
     cl::desc("Choose the OpenMP library to use. (0: 'GNU' (default) or 1: 'LLVM')"),
     cl::Hidden, cl::init(0), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+/*
+static cl::opt<OpenMPBackend> PollyOmpBackend("polly-omp-backend",
+    cl::desc("Choose the OpenMP library to use:"),
+    cl::values(clEnumVal(GNU, "Static chunked"),
+      clEnumVal(LLVM, "Static unspecialized (default)")),
+    cl::Hidden, cl::init(GNU), cl::cat(PollyCategory));
+*/
 
 isl::ast_expr IslNodeBuilder::getUpperBound(isl::ast_node For,
                                             ICmpInst::Predicate &Predicate) {
