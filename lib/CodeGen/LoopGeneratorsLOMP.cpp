@@ -32,7 +32,6 @@ enum SchedulingType {
   kmp_sch_guided_chunked = 36 /**< guided unspecialized */
 };
 
-/*
 static cl::opt<SchedulingType>
     PollyScheduling("polly-lomp-scheduling",
       cl::desc("Scheduling type of parallel OMP for loops"),
@@ -40,14 +39,8 @@ static cl::opt<SchedulingType>
         clEnumVal(kmp_sch_static, "Static unspecialized (default)"),
         clEnumVal(kmp_sch_dynamic_chunked, "Dynamic chunked"),
         clEnumVal(kmp_sch_guided_chunked, "Guided chunked (Static + Dynamic)")),
-      cl::Hidden, cl::init(kmp_sch_static));
-*/
-
-static cl::opt<int>
-    PollyScheduling("polly-lomp-scheduling",
-                    cl::desc("Integer representation of the KMPC scheduling"),
-                    cl::Hidden, cl::init(34), cl::Optional,
-                    cl::cat(PollyCategory));
+      cl::Hidden, cl::init(kmp_sch_static), cl::Optional,
+      cl::cat(PollyCategory));
 
 static cl::opt<int>
     PollyChunkSize("polly-lomp-chunksize",
@@ -479,27 +472,7 @@ void ParallelLoopGeneratorLOMP::collectSchedulingInfo() {
   // Store information so it is available later on
   // 33: kmp_sch_static_chunked, 34: kmp_sch_static
   // 35: kmp_sch_dynamic_chunked, 36: kmp_sch_guided_chunked
-  // isDynamicSchedule =
-  //  (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) ? false : true;
+  isDynamicSchedule =
+    (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) ? false : true;
   ScheduleType = Builder.getInt32(PollyScheduling);
-
-  // Find out which _init/_next/_fini functions to use
-  switch (PollyScheduling) {
-    default:
-    case 33: // kmp_sch_static_chunked
-    case 34: // kmp_sch_static
-    case 40: // kmp_sch_static_greedy
-    case 41: // kmp_sch_static_balanced
-    case 44: // kmp_sch_static_steal
-    case 45: // kmp_sch_static_balanced_chunked
-      isDynamicSchedule = false;
-      break;
-    case 35: // kmp_sch_dynamic_chunked
-    case 36: // kmp_sch_guided_chunked
-    case 39: // kmp_sch_trapezoidal
-    case 42: // kmp_sch_guided_iterative_chunked
-    case 43: // kmp_sch_guided_analytical_chunked
-      isDynamicSchedule = true;
-      break;
-  }
 }
