@@ -104,9 +104,13 @@ void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
   Value *task = Builder.CreatePointerBitCastOrAddrSpaceCast(
       SubFn, Kmpc_MicroTy->getPointerTo());
 
-  Value *Args[] = {
-      SourceLocationInfo, Builder.getInt32(4), task, LB, UB, Stride,
-      SubFnParam};
+  Value *Args[] = {SourceLocationInfo,
+                   /* Number of arguments (w/o task)*/ Builder.getInt32(4),
+                   task,
+                   LB,
+                   UB,
+                   Stride,
+                   SubFnParam};
 
   Builder.CreateCall(F, Args);
 }
