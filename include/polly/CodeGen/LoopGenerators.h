@@ -13,7 +13,6 @@
 #ifndef POLLY_LOOP_GENERATORS_H
 #define POLLY_LOOP_GENERATORS_H
 
-#include "polly/Options.h"
 #include "polly/CodeGen/IRBuilder.h"
 #include "polly/Support/ScopHelper.h"
 
@@ -206,8 +205,8 @@ public:
   ///
   /// @return The newly created induction variable.
   virtual Value *createSubFn(Value *Stride, AllocaInst *Struct,
-                     SetVector<Value *> UsedValues, ValueMapT &VMap,
-                     Function **SubFn) = 0;
+                             SetVector<Value *> UsedValues, ValueMapT &VMap,
+                             Function **SubFn) = 0;
 };
 } // end namespace polly
 #endif

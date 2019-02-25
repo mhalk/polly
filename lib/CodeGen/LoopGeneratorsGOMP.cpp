@@ -1,4 +1,4 @@
-//===------ LoopGeneratorsGOMP.cpp -  IR helper to create loops ---------------===//
+//===------ LoopGeneratorsGOMP.cpp -  IR helper to create loops -----------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "polly/CodeGen/LoopGenerators.h"
 #include "polly/CodeGen/LoopGeneratorsGOMP.h"
 #include "polly/ScopDetection.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -49,8 +48,9 @@ using namespace polly;
 // of indvar + Stride before the final abort.
 
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
-                                                   Value *SubFnParam, Value *LB,
-                                                   Value *UB, Value *Stride) {
+                                                       Value *SubFnParam,
+                                                       Value *LB, Value *UB,
+                                                       Value *Stride) {
   const std::string Name = "GOMP_parallel_loop_runtime_start";
 
   Function *F = M->getFunction(Name);
@@ -77,8 +77,9 @@ void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
 }
 
 void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
-                                                   Value *SubFnParam, Value *LB,
-                                                   Value *UB, Value *Stride) {
+                                                        Value *SubFnParam,
+                                                        Value *LB, Value *UB,
+                                                        Value *Stride) {
   // Tell the runtime we start a parallel loop
   createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
   Builder.CreateCall(SubFn, SubFnParam);
@@ -90,13 +91,16 @@ std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() {
   return Arguments;
 }
 
-void ParallelLoopGeneratorGOMP::createSubFnParamNames(Function::arg_iterator AI) {
+void ParallelLoopGeneratorGOMP::createSubFnParamNames(
+    Function::arg_iterator AI) {
   AI->setName("polly.par.userContext");
 }
 
-Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
-                                          SetVector<Value *> Data,
-                                          ValueMapT &Map, Function **SubFnPtr) {
+Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride,
+                                              AllocaInst *StructData,
+                                              SetVector<Value *> Data,
+                                              ValueMapT &Map,
+                                              Function **SubFnPtr) {
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *Ret1, *HasNextSchedule, *LB, *UB, *IV;
   Function *SubFn = createSubFnDefinition();
@@ -163,7 +167,7 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructD
 }
 
 Value *ParallelLoopGeneratorGOMP::createCallGetWorkItem(Value *LBPtr,
-                                                    Value *UBPtr) {
+                                                        Value *UBPtr) {
   const std::string Name = "GOMP_loop_runtime_next";
 
   Function *F = M->getFunction(Name);

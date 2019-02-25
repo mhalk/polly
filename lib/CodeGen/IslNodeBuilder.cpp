@@ -82,12 +82,8 @@ STATISTIC(ParallelLoops, "Number of generated parallel for-loops");
 STATISTIC(VectorLoops, "Number of generated vector for-loops");
 STATISTIC(IfConditions, "Number of generated if-conditions");
 
-/// Scheduling types of parallel OMP for loops.
-/// (Subset taken from OpenMP's enum in kmp.h: sched_type)
-enum OpenMPBackend {
-  GNU = 0,
-  LLVM = 1
-};
+/// OpenMP backend options
+enum OpenMPBackend { GNU = 0, LLVM = 1 };
 
 static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
@@ -108,10 +104,9 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
     cl::desc("The size of the first level cache line size specified in bytes."),
     cl::Hidden, cl::init(64), cl::ZeroOrMore, cl::cat(PollyCategory));
 
-static cl::opt<OpenMPBackend> PollyOmpBackend("polly-omp-backend",
-    cl::desc("Choose the OpenMP library to use:"),
-    cl::values(clEnumVal(GNU, "Static chunked"),
-      clEnumVal(LLVM, "Static unspecialized (default)")),
+static cl::opt<OpenMPBackend> PollyOmpBackend(
+    "polly-omp-backend", cl::desc("Choose the OpenMP library to use:"),
+    cl::values(clEnumVal(GNU, "GNU OpenMP"), clEnumVal(LLVM, "LLVM OpenMP")),
     cl::Hidden, cl::init(GNU), cl::cat(PollyCategory));
 
 isl::ast_expr IslNodeBuilder::getUpperBound(isl::ast_node For,
@@ -687,19 +682,19 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   ParallelLoopGenerator *ParallelLoopGenPtr;
 
   switch (PollyOmpBackend) {
-    case 0:
-    default:
-      printf("Polly-OMP-Backend: GNU-9.\n");
-      ParallelLoopGenPtr = new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL);
-      break;
-    case 1:
-      printf("Polly-OMP-Backend: LLVM-9.\n");
-      ParallelLoopGenPtr = new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL);
-      break;
+  case 0:
+  default:
+    printf("Polly-OMP-Backend: GNU-9.\n");
+    ParallelLoopGenPtr = new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL);
+    break;
+  case 1:
+    printf("Polly-OMP-Backend: LLVM-9.\n");
+    ParallelLoopGenPtr = new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL);
+    break;
   }
 
-  IV = ParallelLoopGenPtr->createParallelLoop(ValueLB, ValueUB, ValueInc,
-                                          SubtreeValues, NewValues, &LoopBody);
+  IV = ParallelLoopGenPtr->createParallelLoop(
+      ValueLB, ValueUB, ValueInc, SubtreeValues, NewValues, &LoopBody);
   BasicBlock::iterator AfterLoop = Builder.GetInsertPoint();
   Builder.SetInsertPoint(&*LoopBody);
 

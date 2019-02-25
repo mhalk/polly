@@ -14,8 +14,8 @@
 #ifndef POLLY_LOOP_GENERATORS_LOMP_H
 #define POLLY_LOOP_GENERATORS_LOMP_H
 
-#include "polly/Options.h"
 #include "polly/CodeGen/IRBuilder.h"
+#include "polly/CodeGen/LoopGenerators.h"
 #include "polly/Support/ScopHelper.h"
 
 #include "llvm/ADT/SetVector.h"
@@ -70,18 +70,18 @@ using namespace llvm;
 ///     }
 ///     cleanup_thread();
 ///   }
-class ParallelLoopGeneratorLOMP: public ParallelLoopGenerator {
+class ParallelLoopGeneratorLOMP : public ParallelLoopGenerator {
 public:
   /// Create a parallel loop generator for the current function.
   ParallelLoopGeneratorLOMP(PollyIRBuilder &Builder, LoopInfo &LI,
-                        DominatorTree &DT, const DataLayout &DL)
+                            DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {
-        is64bitArch = (LongType->getIntegerBitWidth() == 64);
-        SourceLocationInfo = createSourceLocation();
-        collectSchedulingInfo();
-      }
+    is64bitArch = (LongType->getIntegerBitWidth() == 64);
+    SourceLocationInfo = createSourceLocation();
+    collectSchedulingInfo();
+  }
 
-private:
+protected:
   /// True if 'LongType' is 64bit wide, otherwise: False.
   bool is64bitArch;
 
@@ -123,8 +123,8 @@ public:
   /// @param LB         The lower bound for the loop we parallelize.
   /// @param UB         The upper bound for the loop we parallelize.
   /// @param Stride     The stride of the loop we parallelize.
-  void deployParallelExecution(Value *SubFn, Value *SubFnParam,
-                               Value *LB, Value *UB, Value *Stride);
+  void deployParallelExecution(Value *SubFn, Value *SubFnParam, Value *LB,
+                               Value *UB, Value *Stride);
 
   /// Create the parameter definition for the parallel subfunction.
   ///
@@ -170,8 +170,8 @@ public:
   /// @param UB          The loop's upper bound.
   /// @param Inc         The loop increment.
   /// @param Chunk       The chunk size of the parallel loop.
-  void createCallDispatchInit(Value *global_tid,
-                              Value *LB, Value *UB, Value *Inc, Value *Chunk);
+  void createCallDispatchInit(Value *global_tid, Value *LB, Value *UB,
+                              Value *Inc, Value *Chunk);
 
   /// Create a runtime library call to retrieve the next (dynamically)
   /// allocated chunk of work for this thread.
@@ -184,8 +184,8 @@ public:
   /// @param pStride     Pointer to the stride for the next chunk of work.
   ///
   /// @return A Value which holds 1 if there is work to be done, 0 otherwise.
-  Value *createCallDispatchNext(Value *global_tid, Value *pIsLast,
-                                Value *pLB, Value *pUB, Value *pStride);
+  Value *createCallDispatchNext(Value *global_tid, Value *pIsLast, Value *pLB,
+                                Value *pUB, Value *pStride);
 
   /// Create a runtime library call to prepare the OpenMP runtime.
   /// For statically scheduled loops, saving the loop arguments.

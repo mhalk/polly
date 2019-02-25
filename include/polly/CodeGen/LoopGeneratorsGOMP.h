@@ -15,6 +15,7 @@
 #define POLLY_LOOP_GENERATORS_GOMP_H
 
 #include "polly/CodeGen/IRBuilder.h"
+#include "polly/CodeGen/LoopGenerators.h"
 #include "polly/Support/ScopHelper.h"
 
 #include "llvm/ADT/SetVector.h"
@@ -69,14 +70,13 @@ using namespace llvm;
 ///     }
 ///     cleanup_thread();
 ///   }
-class ParallelLoopGeneratorGOMP: public ParallelLoopGenerator {
+class ParallelLoopGeneratorGOMP : public ParallelLoopGenerator {
 public:
   /// Create a parallel loop generator for the current function.
   ParallelLoopGeneratorGOMP(PollyIRBuilder &Builder, LoopInfo &LI,
-                        DominatorTree &DT, const DataLayout &DL)
+                            DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {}
 
-public:
   /// The functions below can be used if one does not want to generate a
   /// specific OpenMP parallel loop, but generate individual parts of it
   /// (e.g., the subfunction definition).
@@ -101,8 +101,8 @@ public:
   /// @param LB         The lower bound for the loop we parallelize.
   /// @param UB         The upper bound for the loop we parallelize.
   /// @param Stride     The stride of the loop we parallelize.
-  void deployParallelExecution(Value *SubFn, Value *SubFnParam,
-                               Value *LB, Value *UB, Value *Stride);
+  void deployParallelExecution(Value *SubFn, Value *SubFnParam, Value *LB,
+                               Value *UB, Value *Stride);
 
   /// Create the parameter definition for the parallel subfunction.
   std::vector<Type *> createSubFnParamList();
