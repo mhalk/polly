@@ -2,6 +2,9 @@
 ; RUN: opt %loadPolly -polly-codegen -polly-parallel -polly-omp-backend=LLVM -polly-num-threads=1 -S < %s | FileCheck %s --check-prefix=ONE
 ; RUN: opt %loadPolly -polly-codegen -polly-parallel -polly-omp-backend=LLVM -polly-num-threads=4 -S < %s | FileCheck %s --check-prefix=FOUR
 ;
+; This is a copy of the test case 'openmp_limit_threads',
+; adapted for the LLVM OpenMP backend.
+
 ; In automatic mode, no threads are pushed explicitly.
 ; AUTO-NOT: call void @__kmpc_push_num_threads
 ; ONE: call void @__kmpc_push_num_threads(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %{{[0-9]+}}, i32 1)

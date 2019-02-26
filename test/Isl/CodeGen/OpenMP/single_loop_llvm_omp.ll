@@ -41,7 +41,7 @@
 ; IR-NEXT:   store i32 0, i32* %polly.par.lastIterPtr
 ; IR-NEXT:   store i64 %polly.kmpc.inc, i64* %polly.par.StridePtr
 ; IR-NEXT:   %polly.indvar.UBAdjusted = add i64 %polly.kmpc.ub, -1
-; IR-NEXT:   call void @__kmpc_for_static_init_8(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 34, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 1)
+; IR-NEXT:   call void @__kmpc_for_static_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 34, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 1)
 ; IR-NEXT:   %polly.indvar.init = load i64, i64* %polly.par.LBPtr
 ; IR-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
 ; IR-NEXT:   %polly.UB_slt_adjUB = icmp slt i64 %polly.indvar.UB, %polly.indvar.UBAdjusted
@@ -79,8 +79,8 @@
 
 ; IR: attributes #1 = { "polly.skip.fn" }
 
-; IR-DYNAMIC:   call void @__kmpc_dispatch_init_8(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32 35, i64 %polly.kmpc.lb, i64 %polly.indvar.UBAdjusted, i64 %polly.kmpc.inc, i64 1)
-; IR-DYNAMIC-NEXT:   %{{[0-9]+}} = call i32 @__kmpc_dispatch_next_8(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr)
+; IR-DYNAMIC:   call void @__kmpc_dispatch_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32 35, i64 %polly.kmpc.lb, i64 %polly.indvar.UBAdjusted, i64 %polly.kmpc.inc, i64 1)
+; IR-DYNAMIC-NEXT:   %{{[0-9]+}} = call i32 @__kmpc_dispatch_next_{{[4|8]}}(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr)
 ; IR-DYNAMIC-NEXT:   %polly.hasIteration = icmp eq i32 %{{[0-9]+}}, 1
 ; IR-DYNAMIC-NEXT:   br i1 %polly.hasIteration, label %polly.par.loadIVBounds, label %polly.par.exit
 
@@ -88,7 +88,7 @@
 ; IR-DYNAMIC-NEXT:   ret void
 
 ; IR-DYNAMIC-LABEL: polly.par.checkNext:
-; IR-DYNAMIC-NEXT:   %{{[0-9]+}} = call i32 @__kmpc_dispatch_next_8(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr)
+; IR-DYNAMIC-NEXT:   %{{[0-9]+}} = call i32 @__kmpc_dispatch_next_{{[4|8]}}(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr)
 ; IR-DYNAMIC-NEXT:   %polly.hasWork = icmp eq i32 %{{[0-9]+}}, 1
 ; IR-DYNAMIC-NEXT:   br i1 %polly.hasWork, label %polly.par.loadIVBounds, label %polly.par.exit
 
@@ -97,7 +97,7 @@
 ; IR-DYNAMIC-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
 ; IR-DYNAMIC-NEXT:   br label %polly.loop_preheader
 
-; IR-DYNAMIC-FOUR:   call void @__kmpc_dispatch_init_8(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32 35, i64 %polly.kmpc.lb, i64 %polly.indvar.UBAdjusted, i64 %polly.kmpc.inc, i64 4)
+; IR-DYNAMIC-FOUR:   call void @__kmpc_dispatch_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy, i32 %polly.par.global_tid, i32 35, i64 %polly.kmpc.lb, i64 %polly.indvar.UBAdjusted, i64 %polly.kmpc.inc, i64 4)
 
 ; IR-STRIDE4:     call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call(%struct.ident_t* @.loc.dummy, i32 4, void (i32*, i32*, ...)* bitcast (void (i32*, i32*, i64, i64, i64, i8*)* @single_parallel_loop_polly_subfn to void (i32*, i32*, ...)*), i64 0, i64 1024, i64 4, i8* %polly.par.userContext1)
 
