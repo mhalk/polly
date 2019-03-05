@@ -22,31 +22,6 @@
 using namespace llvm;
 using namespace polly;
 
-// We generate a loop of either of the following structures:
-//
-//              BeforeBB                      BeforeBB
-//                 |                             |
-//                 v                             v
-//              GuardBB                      PreHeaderBB
-//              /      |                         |   _____
-//     __  PreHeaderBB  |                        v  \/    |
-//    /  \    /         |                     HeaderBB  latch
-// latch  HeaderBB      |                        |\       |
-//    \  /    \         /                        | \------/
-//     <       \       /                         |
-//              \     /                          v
-//              ExitBB                         ExitBB
-//
-// depending on whether or not we know that it is executed at least once. If
-// not, GuardBB checks if the loop is executed at least once. If this is the
-// case we branch to PreHeaderBB and subsequently to the HeaderBB, which
-// contains the loop iv 'polly.indvar', the incremented loop iv
-// 'polly.indvar_next' as well as the condition to check if we execute another
-// iteration of the loop. After the loop has finished, we branch to ExitBB.
-// We expect the type of UB, LB, UB+Stride to be large enough for values that
-// UB may take throughout the execution of the loop, including the computation
-// of indvar + Stride before the final abort.
-
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,

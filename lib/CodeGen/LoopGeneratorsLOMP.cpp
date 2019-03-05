@@ -48,31 +48,6 @@ static cl::opt<int>
                    cl::Hidden, cl::init(1), cl::Optional,
                    cl::cat(PollyCategory));
 
-// We generate a loop of either of the following structures:
-//
-//              BeforeBB                      BeforeBB
-//                 |                             |
-//                 v                             v
-//              GuardBB                      PreHeaderBB
-//              /      |                         |   _____
-//     __  PreHeaderBB  |                        v  \/    |
-//    /  \    /         |                     HeaderBB  latch
-// latch  HeaderBB      |                        |\       |
-//    \  /    \         /                        | \------/
-//     <       \       /                         |
-//              \     /                          v
-//              ExitBB                         ExitBB
-//
-// depending on whether or not we know that it is executed at least once. If
-// not, GuardBB checks if the loop is executed at least once. If this is the
-// case we branch to PreHeaderBB and subsequently to the HeaderBB, which
-// contains the loop iv 'polly.indvar', the incremented loop iv
-// 'polly.indvar_next' as well as the condition to check if we execute another
-// iteration of the loop. After the loop has finished, we branch to ExitBB.
-// We expect the type of UB, LB, UB+Stride to be large enough for values that
-// UB may take throughout the execution of the loop, including the computation
-// of indvar + Stride before the final abort.
-
 void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,
@@ -82,7 +57,7 @@ void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
   Type *Kmpc_MicroTy = M->getTypeByName("kmpc_micro");
 
   if (!Kmpc_MicroTy) {
-    // void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid,...)
+    // void (*kmpc_micro)(kmp_int32 *global_tid, kmp_int32 *bound_tid, ...)
     Type *MicroParams[] = {Builder.getInt32Ty()->getPointerTo(),
                            Builder.getInt32Ty()->getPointerTo()};
 
@@ -105,7 +80,7 @@ void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
       SubFn, Kmpc_MicroTy->getPointerTo());
 
   Value *Args[] = {SourceLocationInfo,
-                   /* Number of arguments (w/o task)*/ Builder.getInt32(4),
+                   Builder.getInt32(4) /* Number of arguments (w/o task) */,
                    task,
                    LB,
                    UB,
@@ -502,7 +477,7 @@ GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation() {
 }
 
 void ParallelLoopGeneratorLOMP::collectSchedulingInfo() {
-  // Store information so it is available later on
+  // Store information to make it available later on
   // 33: kmp_sch_static_chunked, 34: kmp_sch_static
   // 35: kmp_sch_dynamic_chunked, 36: kmp_sch_guided_chunked
   isDynamicSchedule =

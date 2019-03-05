@@ -30,46 +30,8 @@ class BasicBlock;
 namespace polly {
 using namespace llvm;
 
-/// The ParallelLoopGenerator allows to create parallelized loops
-///
-/// To parallelize a loop, we perform the following steps:
-///   o  Generate a subfunction which will hold the loop body.
-///   o  Create a struct to hold all outer values needed in the loop body.
-///   o  Create calls to a runtime library to achieve the actual parallelism.
-///      These calls will spawn and join threads, define how the work (here the
-///      iterations) are distributed between them and make sure each has access
-///      to the struct holding all needed values.
-///
-/// At the moment we support only one parallel runtime, OpenMP.
-///
-/// If we parallelize the outer loop of the following loop nest,
-///
-///   S0;
-///   for (int i = 0; i < N; i++)
-///     for (int j = 0; j < M; j++)
-///       S1(i, j);
-///   S2;
-///
-/// we will generate the following code (with different runtime function names):
-///
-///   S0;
-///   auto *values = storeValuesIntoStruct();
-///   // Execute subfunction with multiple threads
-///   spawn_threads(subfunction, values);
-///   join_threads();
-///   S2;
-///
-///  // This function is executed in parallel by different threads
-///   void subfunction(values) {
-///     while (auto *WorkItem = getWorkItem()) {
-///       int LB = WorkItem.begin();
-///       int UB = WorkItem.end();
-///       for (int i = LB; i < UB; i++)
-///         for (int j = 0; j < M; j++)
-///           S1(i, j);
-///     }
-///     cleanup_thread();
-///   }
+/// This ParallelLoopGenerator subclass handles the generation of parallelized
+/// code, utilizing the LLVM OpenMP library.
 class ParallelLoopGeneratorLOMP : public ParallelLoopGenerator {
 public:
   /// Create a parallel loop generator for the current function.
@@ -131,7 +93,7 @@ public:
   /// @return A vector containing the types of the subfunction's argument(s).
   std::vector<Type *> createSubFnParamList();
 
-  /// Name the parameters of the parallel subfunction.
+  /// Name the parameters of the parallel subfunction (createSubFnParamList).
   /// @param AI  An iterator pointing to the first subfunction argument.
   void createSubFnParamNames(Function::arg_iterator AI);
 
