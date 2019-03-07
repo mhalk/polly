@@ -17,6 +17,8 @@
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/IslExprBuilder.h"
 #include "polly/CodeGen/LoopGenerators.h"
+#include "polly/CodeGen/LoopGeneratorsGOMP.h"
+#include "polly/CodeGen/LoopGeneratorsLOMP.h"
 #include "polly/CodeGen/RuntimeDebugBuilder.h"
 #include "polly/Config/config.h"
 #include "polly/Options.h"
@@ -80,6 +82,9 @@ STATISTIC(ParallelLoops, "Number of generated parallel for-loops");
 STATISTIC(VectorLoops, "Number of generated vector for-loops");
 STATISTIC(IfConditions, "Number of generated if-conditions");
 
+/// OpenMP backend options
+enum OpenMPBackend { GNU = 0, LLVM = 1 };
+
 static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
     cl::desc("Emit code that prints the runtime check result dynamically."),
@@ -98,6 +103,11 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
     "polly-target-first-level-cache-line-size",
     cl::desc("The size of the first level cache line size specified in bytes."),
     cl::Hidden, cl::init(64), cl::ZeroOrMore, cl::cat(PollyCategory));
+
+static cl::opt<OpenMPBackend> PollyOmpBackend(
+    "polly-omp-backend", cl::desc("Choose the OpenMP library to use:"),
+    cl::values(clEnumVal(GNU, "GNU OpenMP"), clEnumVal(LLVM, "LLVM OpenMP")),
+    cl::Hidden, cl::init(GNU), cl::cat(PollyCategory));
 
 isl::ast_expr IslNodeBuilder::getUpperBound(isl::ast_node For,
                                             ICmpInst::Predicate &Predicate) {
@@ -668,10 +678,23 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
   }
 
   ValueMapT NewValues;
-  ParallelLoopGenerator ParallelLoopGen(Builder, LI, DT, DL);
 
-  IV = ParallelLoopGen.createParallelLoop(ValueLB, ValueUB, ValueInc,
-                                          SubtreeValues, NewValues, &LoopBody);
+  ParallelLoopGenerator *ParallelLoopGenPtr;
+
+  switch (PollyOmpBackend) {
+  case 0:
+  default:
+    printf("Polly-OMP-Backend: GNU-9.\n");
+    ParallelLoopGenPtr = new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL);
+    break;
+  case 1:
+    printf("Polly-OMP-Backend: LLVM-9.\n");
+    ParallelLoopGenPtr = new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL);
+    break;
+  }
+
+  IV = ParallelLoopGenPtr->createParallelLoop(
+      ValueLB, ValueUB, ValueInc, SubtreeValues, NewValues, &LoopBody);
   BasicBlock::iterator AfterLoop = Builder.GetInsertPoint();
   Builder.SetInsertPoint(&*LoopBody);
 
