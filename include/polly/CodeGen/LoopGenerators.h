@@ -170,7 +170,7 @@ public:
 
   /// Create the definition of the parallel subfunction.
   ///
-  /// @return A vector containing the types of the subfunction's argument(s).
+  /// @return A pointer to the subfunction.
   Function *createSubFnDefinition();
 
   /// Create the runtime library calls for spawn and join of the worker threads.
@@ -186,12 +186,12 @@ public:
                                        Value *LB, Value *UB, Value *Stride) = 0;
 
   /// Create the parameter definition for the parallel subfunction.
-  virtual std::vector<Type *> createSubFnParamList() = 0;
+  virtual std::vector<Type *> createSubFnParamList() const = 0;
 
   /// Name the parameters of the parallel subfunction.
   ///
   /// @param AI An interator which points at the first argument to name.
-  virtual void createSubFnParamNames(Function::arg_iterator AI) = 0;
+  virtual void createSubFnParamNames(Function::arg_iterator AI) const = 0;
 
   /// Create the parallel subfunction.
   ///

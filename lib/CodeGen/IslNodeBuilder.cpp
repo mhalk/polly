@@ -16,7 +16,6 @@
 #include "polly/CodeGen/CodeGeneration.h"
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/IslExprBuilder.h"
-#include "polly/CodeGen/LoopGenerators.h"
 #include "polly/CodeGen/LoopGeneratorsGOMP.h"
 #include "polly/CodeGen/LoopGeneratorsLOMP.h"
 #include "polly/CodeGen/RuntimeDebugBuilder.h"
@@ -83,7 +82,7 @@ STATISTIC(VectorLoops, "Number of generated vector for-loops");
 STATISTIC(IfConditions, "Number of generated if-conditions");
 
 /// OpenMP backend options
-enum OpenMPBackend { GNU = 0, LLVM = 1 };
+enum OpenMPBackend { GNU, LLVM };
 
 static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
@@ -679,17 +678,17 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
 
   ValueMapT NewValues;
 
-  ParallelLoopGenerator *ParallelLoopGenPtr;
+  std::unique_ptr<ParallelLoopGenerator> ParallelLoopGenPtr;
 
   switch (PollyOmpBackend) {
-  case 0:
+  case OpenMPBackend::GNU:
   default:
-    printf("Polly-OMP-Backend: GNU-9.\n");
-    ParallelLoopGenPtr = new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL);
+    ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
+        new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL));
     break;
-  case 1:
-    printf("Polly-OMP-Backend: LLVM-9.\n");
-    ParallelLoopGenPtr = new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL);
+  case OpenMPBackend::LLVM:
+    ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
+        new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL));
     break;
   }
 

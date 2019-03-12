@@ -37,6 +37,29 @@ also need to add -mllvm -polly-parallel -lgomp to your CFLAGS.
 
   clang -O3 -mllvm -polly -mllvm -polly-parallel -lgomp file.c
 
+Switching the OpenMP backend
+-------------------------------
+
+Usage:
+  The CL switch "polly-omp-backend" allows to choose the OpenMP-backend.
+    GNU: Use GNU OpenMP library (default)
+    LLVM: Use LLVM OpenMP library
+
+The LLVM OpenMP backend can be further influenced using the following CL
+switches:
+  "polly-num-threads": Number of threads to use
+  (default: 0 = auto/OMP runtime)
+  "polly-omp-scheduling": The utilized LLVM OpenMP scheduling type
+  (runtime, static, dynamic or guided)
+  "polly-omp-chunksize": Chunksize to use by the LLVM OpenMP runtime calls
+  (default: 1)
+
+  Example: Use alternative backend with dynamic scheduling, chunksize of one and
+  four threads.
+  .. code-block:: console
+    -mllvm -polly-omp-backend=LLVM -mllvm -polly-num-threads=4 -mllvm
+    -polly-lomp-chunksize=1 -mllvm -polly-lomp-scheduling=dynamic
+
 Automatic Vector code generation
 ================================
 

@@ -1,4 +1,4 @@
-//===------ LoopGeneratorsLOMP.cpp -  IR helper to create loops -----------===//
+//===------ LoopGeneratorsLOMP.cpp - IR helper to create loops ------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -76,12 +76,12 @@ void ParallelLoopGeneratorLOMP::createCallSpawnThreads(Value *SubFn,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *task = Builder.CreatePointerBitCastOrAddrSpaceCast(
+  Value *Task = Builder.CreatePointerBitCastOrAddrSpaceCast(
       SubFn, Kmpc_MicroTy->getPointerTo());
 
   Value *Args[] = {SourceLocationInfo,
-                   Builder.getInt32(4) /* Number of arguments (w/o task) */,
-                   task,
+                   Builder.getInt32(4) /* Number of arguments (w/o Task) */,
+                   Task,
                    LB,
                    UB,
                    Stride,
@@ -94,7 +94,6 @@ void ParallelLoopGeneratorLOMP::deployParallelExecution(Value *SubFn,
                                                         Value *SubFnParam,
                                                         Value *LB, Value *UB,
                                                         Value *Stride) {
-
   // Inform OpenMP runtime about the number of threads if non-zero
   if (!(NumberOfThreads->isZero())) {
     Value *gtid = createCallGlobalThreadNum();
@@ -105,16 +104,17 @@ void ParallelLoopGeneratorLOMP::deployParallelExecution(Value *SubFn,
   createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
 }
 
-std::vector<Type *> ParallelLoopGeneratorLOMP::createSubFnParamList() {
-  std::vector<Type *> Arguments(2, Builder.getInt32Ty()->getPointerTo());
-  Arguments.insert(Arguments.end(), 3, LongType);
-  Arguments.push_back(Builder.getInt8PtrTy());
-
-  return Arguments;
+std::vector<Type *> ParallelLoopGeneratorLOMP::createSubFnParamList() const {
+  return {Builder.getInt32Ty()->getPointerTo(),
+          Builder.getInt32Ty()->getPointerTo(),
+          LongType,
+          LongType,
+          LongType,
+          Builder.getInt8PtrTy()};
 }
 
 void ParallelLoopGeneratorLOMP::createSubFnParamNames(
-    Function::arg_iterator AI) {
+    Function::arg_iterator AI) const {
   AI->setName("polly.kmpc.global_tid");
   std::advance(AI, 1);
   AI->setName("polly.kmpc.bound_tid");
@@ -276,8 +276,7 @@ Value *ParallelLoopGeneratorLOMP::createCallGlobalThreadNum() {
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {SourceLocationInfo};
-  Value *retVal = Builder.CreateCall(F, Args);
+  Value *retVal = Builder.CreateCall(F, {SourceLocationInfo});
 
   return retVal;
 }
@@ -308,7 +307,6 @@ void ParallelLoopGeneratorLOMP::createCallStaticInit(Value *global_tid,
                                                      Value *pIsLast, Value *pLB,
                                                      Value *pUB, Value *pStride,
                                                      Value *Chunk) {
-
   const std::string Name =
       is64bitArch ? "__kmpc_for_static_init_8" : "__kmpc_for_static_init_4";
   Function *F = M->getFunction(Name);
@@ -367,7 +365,6 @@ void ParallelLoopGeneratorLOMP::createCallDispatchInit(Value *global_tid,
                                                        Value *LB, Value *UB,
                                                        Value *Inc,
                                                        Value *Chunk) {
-
   const std::string Name =
       is64bitArch ? "__kmpc_dispatch_init_8" : "__kmpc_dispatch_init_4";
   Function *F = M->getFunction(Name);
@@ -399,7 +396,6 @@ Value *ParallelLoopGeneratorLOMP::createCallDispatchNext(Value *global_tid,
                                                          Value *pIsLast,
                                                          Value *pLB, Value *pUB,
                                                          Value *pStride) {
-
   const std::string Name =
       is64bitArch ? "__kmpc_dispatch_next_8" : "__kmpc_dispatch_next_4";
   Function *F = M->getFunction(Name);
@@ -426,7 +422,8 @@ Value *ParallelLoopGeneratorLOMP::createCallDispatchNext(Value *global_tid,
   return retVal;
 }
 
-// FIXME: This function only creates a source location dummy.
+// TODO: This function currently creates a source location dummy. It might be
+// necessary to (actually) provide information, in the future.
 GlobalVariable *ParallelLoopGeneratorLOMP::createSourceLocation() {
   const std::string Name = ".loc.dummy";
   GlobalVariable *sourceLocDummy = M->getGlobalVariable(Name);
@@ -481,7 +478,6 @@ void ParallelLoopGeneratorLOMP::collectSchedulingInfo() {
   // 33: kmp_sch_static_chunked, 34: kmp_sch_static
   // 35: kmp_sch_dynamic_chunked, 36: kmp_sch_guided_chunked
   isDynamicSchedule =
-      (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) ? false
-                                                                  : true;
+      PollyScheduling >= SchedulingType::kmp_sch_dynamic_chunked;
   ScheduleType = Builder.getInt32(PollyScheduling);
 }

@@ -10,7 +10,7 @@
 ; ONE: call void @__kmpc_push_num_threads(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %{{[0-9]+}}, i32 1)
 ; FOUR: call void @__kmpc_push_num_threads(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %{{[0-9]+}}, i32 4)
 ;
-;    void jd(int *A) {
+;    void storePosition(int *A) {
 ;      for (int i = 0; i < 1024; i++)
 ;        for (int j = 0; j < 1024; j++)
 ;          A[i + j * 1024] = 0;
@@ -18,7 +18,7 @@
 ;
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 
-define void @jd(i32* %A) {
+define void @storePosition(i32* %A) {
 entry:
   br label %for.cond
 

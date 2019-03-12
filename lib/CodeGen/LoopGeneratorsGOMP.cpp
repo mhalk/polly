@@ -1,4 +1,4 @@
-//===------ LoopGeneratorsGOMP.cpp -  IR helper to create loops -----------===//
+//===------ LoopGeneratorsGOMP.cpp - IR helper to create loops ------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -61,13 +61,13 @@ void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
   createCallJoinThreads();
 }
 
-std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() {
+std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() const {
   std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
   return Arguments;
 }
 
 void ParallelLoopGeneratorGOMP::createSubFnParamNames(
-    Function::arg_iterator AI) {
+    Function::arg_iterator AI) const {
   AI->setName("polly.par.userContext");
 }
 

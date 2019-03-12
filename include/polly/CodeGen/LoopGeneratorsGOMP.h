@@ -1,9 +1,8 @@
-//===- LoopGenerators.h - IR helper to create loops -------------*- C++ -*-===//
+//===- LoopGeneratorsGOMP.h - IR helper to create loops ---------*- C++ -*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -39,9 +38,9 @@ public:
                             DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {}
 
-  /// The functions below can be used if one does not want to generate a
-  /// specific OpenMP parallel loop, but generate individual parts of it
-  /// (e.g., the subfunction definition).
+  // The functions below may be used if one does not want to generate a
+  // specific OpenMP parallel loop, but generate individual parts of it
+  // (e.g. the subfunction definition).
 
   /// Create a runtime library call to spawn the worker threads.
   ///
@@ -54,40 +53,16 @@ public:
   void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
                               Value *UB, Value *Stride);
 
-  /// Create the runtime library calls for spawn and join of the worker threads.
-  /// Additionally, places a call to the specified subfunction.
-  ///
-  /// @param SubFn      The subfunction which holds the loop body.
-  /// @param SubFnParam The parameter for the subfunction (basically the struct
-  ///                   filled with the outside values).
-  /// @param LB         The lower bound for the loop we parallelize.
-  /// @param UB         The upper bound for the loop we parallelize.
-  /// @param Stride     The stride of the loop we parallelize.
   void deployParallelExecution(Value *SubFn, Value *SubFnParam, Value *LB,
-                               Value *UB, Value *Stride);
+                               Value *UB, Value *Stride) override;
 
-  /// Create the parameter definition for the parallel subfunction.
-  std::vector<Type *> createSubFnParamList();
+  std::vector<Type *> createSubFnParamList() const override;
 
-  /// Name the parameters of the parallel subfunction.
-  ///
-  /// @return A vector containing the types of the subfunction's argument(s).
-  void createSubFnParamNames(Function::arg_iterator AI);
+  void createSubFnParamNames(Function::arg_iterator AI) const override;
 
-  /// Create the parallel subfunction.
-  ///
-  /// @param Stride The induction variable increment.
-  /// @param Struct A struct holding all values in @p Values.
-  /// @param Values A set of LLVM-IR Values that should be available in
-  ///               the new loop body.
-  /// @param VMap   A map to allow outside access to the new versions of
-  ///               the values in @p Values.
-  /// @param SubFn  The newly created subfunction is returned here.
-  ///
-  /// @return The newly created induction variable.
   Value *createSubFn(Value *Stride, AllocaInst *Struct,
                      SetVector<Value *> UsedValues, ValueMapT &VMap,
-                     Function **SubFn);
+                     Function **SubFn) override;
 
   /// Create a runtime library call to join the worker threads.
   void createCallJoinThreads();
