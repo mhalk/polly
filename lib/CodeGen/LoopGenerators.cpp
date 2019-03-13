@@ -24,10 +24,13 @@
 using namespace llvm;
 using namespace polly;
 
-static cl::opt<int>
-    PollyNumThreads("polly-num-threads",
-                    cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
-                    cl::init(0), cl::cat(PollyCategory));
+int polly::PollyNumThreads;
+
+static cl::opt<int, true>
+    XPollyNumThreads("polly-num-threads",
+                     cl::desc("Number of threads to use (0 = auto)"),
+                     cl::Hidden, cl::location(polly::PollyNumThreads),
+                     cl::init(0), cl::cat(PollyCategory));
 
 // We generate a loop of either of the following structures:
 //
@@ -150,7 +153,6 @@ Value *ParallelLoopGenerator::createParallelLoop(
     Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
   Function *SubFn;
-  NumberOfThreads = Builder.getInt32(PollyNumThreads);
 
   AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();

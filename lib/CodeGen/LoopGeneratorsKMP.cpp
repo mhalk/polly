@@ -23,6 +23,8 @@
 using namespace llvm;
 using namespace polly;
 
+extern int polly::PollyNumThreads;
+
 /// Scheduling types of parallel OMP for loops.
 /// (Subset taken from OpenMP's enum in kmp.h: sched_type)
 enum SchedulingType {
@@ -94,10 +96,10 @@ void ParallelLoopGeneratorKMP::deployParallelExecution(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,
                                                        Value *Stride) {
-  // Inform OpenMP runtime about the number of threads if non-zero
-  if (!(NumberOfThreads->isZero())) {
+  // Inform OpenMP runtime about the number of threads if greater than zero
+  if (PollyNumThreads > 0) {
     Value *gtid = createCallGlobalThreadNum();
-    createCallPushNumThreads(gtid, NumberOfThreads);
+    createCallPushNumThreads(gtid, Builder.getInt32(PollyNumThreads));
   }
 
   // Tell the runtime we start a parallel loop

@@ -22,6 +22,8 @@
 using namespace llvm;
 using namespace polly;
 
+extern int polly::PollyNumThreads;
+
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,
@@ -46,7 +48,8 @@ void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {SubFn, SubFnParam, NumberOfThreads, LB, UB, Stride};
+  Value *Args[] = {SubFn, SubFnParam, Builder.getInt32(PollyNumThreads),
+                   LB,    UB,         Stride};
 
   Builder.CreateCall(F, Args);
 }

@@ -28,6 +28,8 @@ class BasicBlock;
 namespace polly {
 using namespace llvm;
 
+extern int PollyNumThreads;
+
 /// Create a scalar do/for-style loop.
 ///
 /// @param LowerBound         The starting value of the induction variable.
@@ -147,9 +149,6 @@ protected:
 
   /// The current module.
   Module *M;
-
-  /// The number of threads to utilize for OpenMP parallelization
-  ConstantInt *NumberOfThreads;
 
 public:
   /// Create a struct for all @p Values and store them in there.
