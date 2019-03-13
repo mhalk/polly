@@ -17,7 +17,7 @@
 #include "polly/CodeGen/IslAst.h"
 #include "polly/CodeGen/IslExprBuilder.h"
 #include "polly/CodeGen/LoopGeneratorsGOMP.h"
-#include "polly/CodeGen/LoopGeneratorsLOMP.h"
+#include "polly/CodeGen/LoopGeneratorsKMP.h"
 #include "polly/CodeGen/RuntimeDebugBuilder.h"
 #include "polly/Config/config.h"
 #include "polly/Options.h"
@@ -688,7 +688,7 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
     break;
   case OpenMPBackend::LLVM:
     ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
-        new ParallelLoopGeneratorLOMP(Builder, LI, DT, DL));
+        new ParallelLoopGeneratorKMP(Builder, LI, DT, DL));
     break;
   }
 
