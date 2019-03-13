@@ -28,7 +28,18 @@ class BasicBlock;
 namespace polly {
 using namespace llvm;
 
+/// General scheduling types of parallel OpenMP for loops.
+/// Initialization values taken from OpenMP's enum in kmp.h: sched_type.
+/// Currently, only 'static' scheduling may change from chunked to non-chunked.
+enum OMPGeneralSchedulingType {
+  stat = 33,
+  dynamic = 35,
+  guided = 36,
+  runtime = 37
+};
+
 extern int PollyNumThreads;
+extern OMPGeneralSchedulingType PollyScheduling;
 
 /// Create a scalar do/for-style loop.
 ///

@@ -4,9 +4,9 @@
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST-STRIDE4
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-codegen -S < %s | FileCheck %s -check-prefix=IR-STRIDE4
 
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-lomp-scheduling=kmp_sch_dynamic_chunked -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-lomp-scheduling=kmp_sch_dynamic_chunked -polly-lomp-chunksize=4 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC-FOUR
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=static -polly-kmp-chunksize=43 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=dynamic -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=dynamic -polly-kmp-chunksize=4 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC-FOUR
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-codegen -polly-omp-backend=LLVM -S < %s | FileCheck %s -check-prefix=LIBOMP-IR-STRIDE4
 
 ; This extensive test case tests the creation of the full set of OpenMP calls
@@ -112,7 +112,7 @@
 ; LIBOMP-IR-NEXT:   store i32 0, i32* %polly.par.lastIterPtr
 ; LIBOMP-IR-NEXT:   store i64 %polly.kmpc.inc, i64* %polly.par.StridePtr
 ; LIBOMP-IR-NEXT:   %polly.indvar.UBAdjusted = add i64 %polly.kmpc.ub, -1
-; LIBOMP-IR-NEXT:   call void @__kmpc_for_static_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 34, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 1)
+; LIBOMP-IR-NEXT:   call void @__kmpc_for_static_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 33, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 43)
 ; LIBOMP-IR-NEXT:   %polly.indvar.init = load i64, i64* %polly.par.LBPtr
 ; LIBOMP-IR-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
 ; LIBOMP-IR-NEXT:   %polly.UB_slt_adjUB = icmp slt i64 %polly.indvar.UB, %polly.indvar.UBAdjusted

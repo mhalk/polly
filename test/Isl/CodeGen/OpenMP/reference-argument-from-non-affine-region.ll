@@ -4,6 +4,11 @@
 ; RUN: | FileCheck %s -check-prefix=IR
 
 ; RUN: opt %loadPolly -polly-parallel \
+; RUN: -polly-parallel-force -polly-codegen -polly-omp-scheduling=runtime \
+; RUN: -S -verify-dom-info < %s \
+; RUN: | FileCheck %s -check-prefix=IR
+
+; RUN: opt %loadPolly -polly-parallel \
 ; RUN: -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM \
 ; RUN: -S -verify-dom-info < %s \
 ; RUN: | FileCheck %s -check-prefix=LIBOMP-IR
@@ -11,7 +16,7 @@
 ; IR: @GOMP_parallel_loop_runtime_start
 
 ; LIBOMP-IR: call void (%struct.ident_t*, i32, void (i32*, i32*, ...)*, ...) @__kmpc_fork_call
-; LIBOMP-IR: call void @__kmpc_for_static_init_{{[4|8]}}
+; LIBOMP-IR: call void @__kmpc_dispatch_init_{{[4|8]}}
 
 target datalayout = "e-m:e-i64:64-f80:128-n8:16:32:64-S128"
 

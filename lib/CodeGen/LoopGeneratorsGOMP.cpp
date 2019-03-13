@@ -23,6 +23,7 @@ using namespace llvm;
 using namespace polly;
 
 extern int polly::PollyNumThreads;
+extern OMPGeneralSchedulingType polly::PollyScheduling;
 
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
@@ -78,6 +79,11 @@ std::tuple<Value *, Function *>
 ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                        SetVector<Value *> Data,
                                        ValueMapT &Map) {
+  if (PollyScheduling != OMPGeneralSchedulingType::runtime) {
+    errs() << "warning: Polly's GNU OpenMP backend solely "
+              "supports the scheduling type 'runtime'.\n";
+  }
+
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *Ret1, *HasNextSchedule, *LB, *UB, *IV;
   Function *SubFn = createSubFnDefinition();

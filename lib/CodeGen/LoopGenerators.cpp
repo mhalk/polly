@@ -25,6 +25,7 @@ using namespace llvm;
 using namespace polly;
 
 int polly::PollyNumThreads;
+OMPGeneralSchedulingType polly::PollyScheduling;
 
 static cl::opt<int, true>
     XPollyNumThreads("polly-num-threads",
@@ -32,6 +33,15 @@ static cl::opt<int, true>
                      cl::Hidden, cl::location(polly::PollyNumThreads),
                      cl::init(0), cl::cat(PollyCategory));
 
+static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
+    "polly-omp-scheduling",
+    cl::desc("Scheduling type of parallel OpenMP for loops"),
+    cl::values(clEnumValN(stat, "static", "Static scheduling"),
+               clEnumVal(dynamic, "Dynamic scheduling"),
+               clEnumVal(guided, "Guided scheduling"),
+               clEnumVal(runtime, "Runtime determined (OMP_SCHEDULE)")),
+    cl::Hidden, cl::location(polly::PollyScheduling), cl::init(runtime),
+    cl::Optional, cl::cat(PollyCategory));
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB

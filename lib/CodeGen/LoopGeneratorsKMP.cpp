@@ -24,30 +24,12 @@ using namespace llvm;
 using namespace polly;
 
 extern int polly::PollyNumThreads;
-
-/// Scheduling types of parallel OMP for loops.
-/// (Subset taken from OpenMP's enum in kmp.h: sched_type)
-enum SchedulingType {
-  kmp_sch_static_chunked = 33,
-  kmp_sch_static = 34, /**< static unspecialized */
-  kmp_sch_dynamic_chunked = 35,
-  kmp_sch_guided_chunked = 36 /**< guided unspecialized */
-};
-
-static cl::opt<SchedulingType> PollyScheduling(
-    "polly-lomp-scheduling",
-    cl::desc("Scheduling type of parallel OMP for loops"),
-    cl::values(clEnumVal(kmp_sch_static_chunked, "Static chunked"),
-               clEnumVal(kmp_sch_static, "Static unspecialized (default)"),
-               clEnumVal(kmp_sch_dynamic_chunked, "Dynamic chunked"),
-               clEnumVal(kmp_sch_guided_chunked,
-                         "Guided chunked (Static + Dynamic)")),
-    cl::Hidden, cl::init(kmp_sch_static), cl::Optional, cl::cat(PollyCategory));
+extern OMPGeneralSchedulingType polly::PollyScheduling;
 
 static cl::opt<int>
-    PollyChunkSize("polly-lomp-chunksize",
-                   cl::desc("Chunksize to use by the KMPC runtime calls"),
-                   cl::Hidden, cl::init(1), cl::Optional,
+    PollyChunkSize("polly-kmp-chunksize",
+                   cl::desc("Chunksize to use by the KMP runtime calls"),
+                   cl::Hidden, cl::init(0), cl::Optional,
                    cl::cat(PollyCategory));
 
 void ParallelLoopGeneratorKMP::createCallSpawnThreads(Value *SubFn,
@@ -199,8 +181,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
 
   Chunk = ConstantInt::get(LongType, chunksize);
 
-  // "DYNAMIC" scheduling types are handled below
-  if (PollyScheduling >= SchedulingType::kmp_sch_dynamic_chunked) {
+  // "DYNAMIC" scheduling types are handled below (including 'runtime')
+  if (PollyScheduling >= OMPGeneralSchedulingType::dynamic) {
     UB = adjUB;
     createCallDispatchInit(ID, LB, UB, Stride, Chunk);
     hasWork = createCallDispatchNext(ID, pIsLast, LBPtr, UBPtr, pStride);
@@ -252,7 +234,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
   // Static (i.e. non-dynamic) scheduling types, are terminated with a fini-call
-  if (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) {
+  if (PollyScheduling == OMPGeneralSchedulingType::stat) {
     createCallStaticFini(ID);
   }
   Builder.CreateRetVoid();
@@ -331,9 +313,19 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *global_tid,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
+  // Choose between chunked and non-chunked static scheduling types
+  // Values are initialized to chunked versions
+  int SchedType = (PollyChunkSize > 0)
+                      ? PollyScheduling
+                      : (PollyScheduling > OMPGeneralSchedulingType::stat)
+                            ? PollyScheduling
+                            : 34 /** static unspecialized / non-chunked */;
+
+  // The parameter 'Chunk' will hold strictly positive integer values,
+  // regardless of PollyChunkSize's value
   Value *Args[] = {SourceLocationInfo,
                    global_tid,
-                   Builder.getInt32(PollyScheduling),
+                   Builder.getInt32(SchedType),
                    pIsLast,
                    pLB,
                    pUB,
@@ -387,6 +379,7 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *global_tid,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
+  // Note that for 'dynamic' scheduling types, only chunked versions are used
   Value *Args[] = {SourceLocationInfo,
                    global_tid,
                    Builder.getInt32(PollyScheduling),
