@@ -1,4 +1,4 @@
-//===- LoopGeneratorsLOMP.h - IR helper to create loops ---------*- C++ -*-===//
+//===- LoopGeneratorsKMP.h - IR helper to create loops ----------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,8 +10,8 @@
 // as LLVM-IR.
 //
 //===----------------------------------------------------------------------===//
-#ifndef POLLY_LOOP_GENERATORS_LOMP_H
-#define POLLY_LOOP_GENERATORS_LOMP_H
+#ifndef POLLY_LOOP_GENERATORS_KMP_H
+#define POLLY_LOOP_GENERATORS_KMP_H
 
 #include "polly/CodeGen/IRBuilder.h"
 #include "polly/CodeGen/LoopGenerators.h"
