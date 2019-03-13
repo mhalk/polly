@@ -130,11 +130,10 @@ void ParallelLoopGeneratorKMP::createSubFnParamNames(
   AI->setName("polly.kmpc.shared");
 }
 
-Value *ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
-                                             AllocaInst *StructData,
-                                             SetVector<Value *> Data,
-                                             ValueMapT &Map,
-                                             Function **SubFnPtr) {
+std::tuple<Value *, Function *>
+ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
+                                      AllocaInst *StructData,
+                                      SetVector<Value *> Data, ValueMapT &Map) {
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *IDPtr, *ID, *IV, *pIsLast, *pStride;
   Value *LB, *UB, *Stride, *Shared, *Chunk, *hasWork, *hasIteration;
@@ -259,9 +258,8 @@ Value *ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Builder.CreateRetVoid();
 
   Builder.SetInsertPoint(&*LoopBody);
-  *SubFnPtr = SubFn;
 
-  return IV;
+  return std::make_tuple(IV, SubFn);
 }
 
 Value *ParallelLoopGeneratorKMP::createCallGlobalThreadNum() {

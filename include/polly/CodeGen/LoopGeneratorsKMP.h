@@ -72,9 +72,9 @@ public:
 
   void createSubFnParamNames(Function::arg_iterator AI) const override;
 
-  Value *createSubFn(Value *Stride, AllocaInst *Struct,
-                     SetVector<Value *> UsedValues, ValueMapT &VMap,
-                     Function **SubFn) override;
+  std::tuple<Value *, Function *> createSubFn(Value *Stride, AllocaInst *Struct,
+                                              SetVector<Value *> UsedValues,
+                                              ValueMapT &VMap) override;
 
   /// Create a runtime library call to get the current global thread number.
   ///

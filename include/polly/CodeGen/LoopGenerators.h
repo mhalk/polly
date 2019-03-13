@@ -203,9 +203,9 @@ public:
   /// @param SubFn  The newly created subfunction is returned here.
   ///
   /// @return The newly created induction variable.
-  virtual Value *createSubFn(Value *Stride, AllocaInst *Struct,
-                             SetVector<Value *> UsedValues, ValueMapT &VMap,
-                             Function **SubFn) = 0;
+  virtual std::tuple<Value *, Function *>
+  createSubFn(Value *Stride, AllocaInst *Struct, SetVector<Value *> UsedValues,
+              ValueMapT &VMap) = 0;
 };
 } // end namespace polly
 #endif

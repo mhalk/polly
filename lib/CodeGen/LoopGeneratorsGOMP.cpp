@@ -74,11 +74,10 @@ void ParallelLoopGeneratorGOMP::createSubFnParamNames(
   AI->setName("polly.par.userContext");
 }
 
-Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride,
-                                              AllocaInst *StructData,
-                                              SetVector<Value *> Data,
-                                              ValueMapT &Map,
-                                              Function **SubFnPtr) {
+std::tuple<Value *, Function *>
+ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
+                                       SetVector<Value *> Data,
+                                       ValueMapT &Map) {
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *Ret1, *HasNextSchedule, *LB, *UB, *IV;
   Function *SubFn = createSubFnDefinition();
@@ -139,9 +138,8 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride,
   Builder.CreateRetVoid();
 
   Builder.SetInsertPoint(&*LoopBody);
-  *SubFnPtr = SubFn;
 
-  return IV;
+  return std::make_tuple(IV, SubFn);
 }
 
 Value *ParallelLoopGeneratorGOMP::createCallGetWorkItem(Value *LBPtr,

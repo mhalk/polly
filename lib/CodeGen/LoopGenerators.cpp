@@ -152,11 +152,13 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
 Value *ParallelLoopGenerator::createParallelLoop(
     Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
+  Value *IV;
   Function *SubFn;
 
   AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
-  Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
+
+  std::tie(IV, SubFn) = createSubFn(Stride, Struct, UsedValues, Map);
   *LoopBody = Builder.GetInsertPoint();
   Builder.SetInsertPoint(&*BeforeLoop);
 
