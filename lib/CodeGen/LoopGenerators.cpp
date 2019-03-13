@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains functions to create scalar and parallel loops as LLVM-IR.
+// This file contains functions to create scalar loops and orchestrate the
+// creation of parallel loops as LLVM-IR.
 //
 //===----------------------------------------------------------------------===//
 
