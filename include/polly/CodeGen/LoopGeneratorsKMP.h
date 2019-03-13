@@ -39,25 +39,15 @@ public:
       : ParallelLoopGenerator(Builder, LI, DT, DL) {
     is64bitArch = (LongType->getIntegerBitWidth() == 64);
     SourceLocationInfo = createSourceLocation();
-    collectSchedulingInfo();
   }
 
 protected:
   /// True if 'LongType' is 64bit wide, otherwise: False.
   bool is64bitArch;
 
-  /// The schedule type, used to execute the microtasks.
-  Value *ScheduleType;
-
-  /// True if the ScheduleType is dynamic, false if it is static.
-  bool isDynamicSchedule;
-
   /// The source location struct of this loop.
   /// ident_t = type { i32, i32, i32, i32, i8* }
   GlobalValue *SourceLocationInfo;
-
-  /// Gather information on the scheduling (ScheduleType & isDynamicSchedule).
-  void collectSchedulingInfo();
 
 public:
   // The functions below may be used if one does not want to generate a

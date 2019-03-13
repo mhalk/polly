@@ -200,8 +200,8 @@ Value *ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
 
   Chunk = ConstantInt::get(LongType, chunksize);
 
-  if (isDynamicSchedule) {
-    // "DYNAMIC" scheduling types are handled below
+  // "DYNAMIC" scheduling types are handled below
+  if (PollyScheduling >= SchedulingType::kmp_sch_dynamic_chunked) {
     UB = adjUB;
     createCallDispatchInit(ID, LB, UB, Stride, Chunk);
     hasWork = createCallDispatchNext(ID, pIsLast, LBPtr, UBPtr, pStride);
@@ -252,7 +252,8 @@ Value *ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
 
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
-  if (!isDynamicSchedule) {
+  // Static (i.e. non-dynamic) scheduling types, are terminated with a fini-call
+  if (PollyScheduling < SchedulingType::kmp_sch_dynamic_chunked) {
     createCallStaticFini(ID);
   }
   Builder.CreateRetVoid();
@@ -334,7 +335,7 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *global_tid,
 
   Value *Args[] = {SourceLocationInfo,
                    global_tid,
-                   ScheduleType,
+                   Builder.getInt32(PollyScheduling),
                    pIsLast,
                    pLB,
                    pUB,
@@ -388,8 +389,13 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *global_tid,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *Args[] = {
-      SourceLocationInfo, global_tid, ScheduleType, LB, UB, Inc, Chunk};
+  Value *Args[] = {SourceLocationInfo,
+                   global_tid,
+                   Builder.getInt32(PollyScheduling),
+                   LB,
+                   UB,
+                   Inc,
+                   Chunk};
 
   Builder.CreateCall(F, Args);
 }
@@ -473,13 +479,4 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
   }
 
   return sourceLocDummy;
-}
-
-void ParallelLoopGeneratorKMP::collectSchedulingInfo() {
-  // Store information to make it available later on
-  // 33: kmp_sch_static_chunked, 34: kmp_sch_static
-  // 35: kmp_sch_dynamic_chunked, 36: kmp_sch_guided_chunked
-  isDynamicSchedule =
-      PollyScheduling >= SchedulingType::kmp_sch_dynamic_chunked;
-  ScheduleType = Builder.getInt32(PollyScheduling);
 }
