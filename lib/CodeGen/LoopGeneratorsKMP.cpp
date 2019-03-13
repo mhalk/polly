@@ -112,6 +112,28 @@ void ParallelLoopGeneratorKMP::createSubFnParamNames(
   AI->setName("polly.kmpc.shared");
 }
 
+// Create a subfunction of the following (preliminary) structure:
+//
+//    PrevBB
+//       |
+//       v
+//    HeaderBB
+//       |   _____
+//       v  v    |
+//   CheckNextBB  PreHeaderBB
+//       |\       |
+//       | \______/
+//       |
+//       v
+//     ExitBB
+//
+// HeaderBB will hold allocations, loading of variables and kmp-init calls.
+// CheckNextBB will check for more work (dynamic) or will be "empty" (static).
+// If there is more work to do: go to PreHeaderBB, otherwise go to ExitBB.
+// PreHeaderBB loads the new boundaries (& will lead to the loop body later on).
+// Just like CheckNextBB: PreHeaderBB is empty in the static scheduling case.
+// ExitBB marks the end of the parallel execution.
+// The possibly empty BasicBlocks will automatically be removed.
 std::tuple<Value *, Function *>
 ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
                                       AllocaInst *StructData,

@@ -75,6 +75,26 @@ void ParallelLoopGeneratorGOMP::createSubFnParamNames(
   AI->setName("polly.par.userContext");
 }
 
+// Create a subfunction of the following (preliminary) structure:
+//
+//    PrevBB
+//       |
+//       v
+//    HeaderBB
+//       |   _____
+//       v  v    |
+//   CheckNextBB  PreHeaderBB
+//       |\       |
+//       | \______/
+//       |
+//       v
+//     ExitBB
+//
+// HeaderBB will hold allocations and loading of variables.
+// CheckNextBB will check for more work.
+// If there is more work to do: go to PreHeaderBB, otherwise go to ExitBB.
+// PreHeaderBB loads the new boundaries (& will lead to the loop body later on).
+// ExitBB marks the end of the parallel execution.
 std::tuple<Value *, Function *>
 ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                        SetVector<Value *> Data,
