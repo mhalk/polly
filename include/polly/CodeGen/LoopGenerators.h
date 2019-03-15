@@ -28,6 +28,20 @@ class BasicBlock;
 namespace polly {
 using namespace llvm;
 
+/// General scheduling types of parallel OpenMP for loops.
+/// Initialization values taken from OpenMP's enum in kmp.h: sched_type.
+/// Currently, only 'static' scheduling may change from chunked to non-chunked.
+enum OMPGeneralSchedulingType {
+  staticSched = 33,
+  dynamic = 35,
+  guided = 36,
+  runtime = 37
+};
+
+extern int PollyNumThreads;
+extern OMPGeneralSchedulingType PollyScheduling;
+extern int PollyChunkSize;
+
 /// Create a scalar do/for-style loop.
 ///
 /// @param LowerBound         The starting value of the induction variable.
@@ -148,9 +162,12 @@ protected:
   /// The current module.
   Module *M;
 
+<<<<<<< HEAD
   /// The number of threads to utilize for OpenMP parallelization
   ConstantInt *NumberOfThreads;
 
+=======
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 public:
   /// Create a struct for all @p Values and store them in there.
   ///
@@ -170,7 +187,11 @@ public:
 
   /// Create the definition of the parallel subfunction.
   ///
+<<<<<<< HEAD
   /// @return A vector containing the types of the subfunction's argument(s).
+=======
+  /// @return A pointer to the subfunction.
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
   Function *createSubFnDefinition();
 
   /// Create the runtime library calls for spawn and join of the worker threads.
@@ -185,6 +206,7 @@ public:
   virtual void deployParallelExecution(Value *SubFn, Value *SubFnParam,
                                        Value *LB, Value *UB, Value *Stride) = 0;
 
+<<<<<<< HEAD
   /// Create the parameter definition for the parallel subfunction.
   virtual std::vector<Type *> createSubFnParamList() = 0;
 
@@ -192,6 +214,15 @@ public:
   ///
   /// @param AI An interator which points at the first argument to name.
   virtual void createSubFnParamNames(Function::arg_iterator AI) = 0;
+=======
+  /// Prepare the definition of the parallel subfunction.
+  /// Creates the argument list and names them (as well as the subfunction).
+  ///
+  /// @param F A pointer to the (parallel) subfunction's parent function.
+  ///
+  /// @return The pointer to the (parallel) subfunction.
+  virtual Function *prepareSubFnDefinition(Function *F) const = 0;
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 
   /// Create the parallel subfunction.
   ///
@@ -204,9 +235,15 @@ public:
   /// @param SubFn  The newly created subfunction is returned here.
   ///
   /// @return The newly created induction variable.
+<<<<<<< HEAD
   virtual Value *createSubFn(Value *Stride, AllocaInst *Struct,
                              SetVector<Value *> UsedValues, ValueMapT &VMap,
                              Function **SubFn) = 0;
+=======
+  virtual std::tuple<Value *, Function *>
+  createSubFn(Value *Stride, AllocaInst *Struct, SetVector<Value *> UsedValues,
+              ValueMapT &VMap) = 0;
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 };
 } // end namespace polly
 #endif

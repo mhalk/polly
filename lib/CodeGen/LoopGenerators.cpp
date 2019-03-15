@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file contains functions to create scalar and parallel loops as LLVM-IR.
+// This file contains functions to create scalar loops and orchestrate the
+// creation of parallel loops as LLVM-IR.
 //
 //===----------------------------------------------------------------------===//
 
@@ -23,11 +24,39 @@
 using namespace llvm;
 using namespace polly;
 
+<<<<<<< HEAD
 static cl::opt<int>
     PollyNumThreads("polly-num-threads",
                     cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
                     cl::init(0), cl::cat(PollyCategory));
 
+=======
+int polly::PollyNumThreads;
+OMPGeneralSchedulingType polly::PollyScheduling;
+int polly::PollyChunkSize;
+
+static cl::opt<int, true>
+    XPollyNumThreads("polly-num-threads",
+                     cl::desc("Number of threads to use (0 = auto)"),
+                     cl::Hidden, cl::location(polly::PollyNumThreads),
+                     cl::init(0), cl::cat(PollyCategory));
+
+static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
+    "polly-scheduling",
+    cl::desc("Scheduling type of parallel OpenMP for loops"),
+    cl::values(clEnumValN(staticSched, "static", "Static scheduling"),
+               clEnumVal(dynamic, "Dynamic scheduling"),
+               clEnumVal(guided, "Guided scheduling"),
+               clEnumVal(runtime, "Runtime determined (OMP_SCHEDULE)")),
+    cl::Hidden, cl::location(polly::PollyScheduling), cl::init(runtime),
+    cl::Optional, cl::cat(PollyCategory));
+
+static cl::opt<int, true>
+    PollyChunkSize("polly-scheduling-chunksize",
+                   cl::desc("Chunksize to use by the KMP runtime calls"),
+                   cl::Hidden, cl::location(polly::PollyChunkSize), cl::init(0),
+                   cl::Optional, cl::cat(PollyCategory));
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB
@@ -148,12 +177,14 @@ Value *polly::createLoop(Value *LB, Value *UB, Value *Stride,
 Value *ParallelLoopGenerator::createParallelLoop(
     Value *LB, Value *UB, Value *Stride, SetVector<Value *> &UsedValues,
     ValueMapT &Map, BasicBlock::iterator *LoopBody) {
+  Value *IV;
   Function *SubFn;
   NumberOfThreads = Builder.getInt32(PollyNumThreads);
 
   AllocaInst *Struct = storeValuesIntoStruct(UsedValues);
   BasicBlock::iterator BeforeLoop = Builder.GetInsertPoint();
-  Value *IV = createSubFn(Stride, Struct, UsedValues, Map, &SubFn);
+
+  std::tie(IV, SubFn) = createSubFn(Stride, Struct, UsedValues, Map);
   *LoopBody = Builder.GetInsertPoint();
   Builder.SetInsertPoint(&*BeforeLoop);
 
@@ -172,10 +203,14 @@ Value *ParallelLoopGenerator::createParallelLoop(
 
 Function *ParallelLoopGenerator::createSubFnDefinition() {
   Function *F = Builder.GetInsertBlock()->getParent();
+<<<<<<< HEAD
   std::vector<Type *> Arguments = createSubFnParamList();
   FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
   Function *SubFn = Function::Create(FT, Function::InternalLinkage,
                                      F->getName() + "_polly_subfn", M);
+=======
+  Function *SubFn = prepareSubFnDefinition(F);
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 
   // Certain backends (e.g., NVPTX) do not support '.'s in function names.
   // Hence, we ensure that all '.'s are replaced by '_'s.
@@ -186,9 +221,12 @@ Function *ParallelLoopGenerator::createSubFnDefinition() {
   // Do not run any polly pass on the new function.
   SubFn->addFnAttr(PollySkipFnAttr);
 
+<<<<<<< HEAD
   // Name the function's arguments
   createSubFnParamNames(SubFn->arg_begin());
 
+=======
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
   return SubFn;
 }
 

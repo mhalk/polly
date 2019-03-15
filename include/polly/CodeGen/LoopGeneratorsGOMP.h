@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 //===- LoopGenerators.h - IR helper to create loops -------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
 //
 // This file is distributed under the University of Illinois Open Source
 // License. See LICENSE.TXT for details.
+=======
+//===- LoopGeneratorsGOMP.h - IR helper to create loops ---------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 //
 //===----------------------------------------------------------------------===//
 //
@@ -39,9 +47,15 @@ public:
                             DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {}
 
+<<<<<<< HEAD
   /// The functions below can be used if one does not want to generate a
   /// specific OpenMP parallel loop, but generate individual parts of it
   /// (e.g., the subfunction definition).
+=======
+  // The functions below may be used if one does not want to generate a
+  // specific OpenMP parallel loop, but generate individual parts of it
+  // (e.g. the subfunction definition).
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 
   /// Create a runtime library call to spawn the worker threads.
   ///
@@ -54,6 +68,7 @@ public:
   void createCallSpawnThreads(Value *SubFn, Value *SubFnParam, Value *LB,
                               Value *UB, Value *Stride);
 
+<<<<<<< HEAD
   /// Create the runtime library calls for spawn and join of the worker threads.
   /// Additionally, places a call to the specified subfunction.
   ///
@@ -88,6 +103,16 @@ public:
   Value *createSubFn(Value *Stride, AllocaInst *Struct,
                      SetVector<Value *> UsedValues, ValueMapT &VMap,
                      Function **SubFn);
+=======
+  void deployParallelExecution(Value *SubFn, Value *SubFnParam, Value *LB,
+                               Value *UB, Value *Stride) override;
+
+  virtual Function *prepareSubFnDefinition(Function *F) const override;
+
+  std::tuple<Value *, Function *> createSubFn(Value *Stride, AllocaInst *Struct,
+                                              SetVector<Value *> UsedValues,
+                                              ValueMapT &VMap) override;
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 
   /// Create a runtime library call to join the worker threads.
   void createCallJoinThreads();

@@ -37,7 +37,11 @@ add_library(PollyCore OBJECT
   ${ISL_CODEGEN_FILES}
   CodeGen/LoopGenerators.cpp
   CodeGen/LoopGeneratorsGOMP.cpp
+<<<<<<< HEAD
   CodeGen/LoopGeneratorsLOMP.cpp
+=======
+  CodeGen/LoopGeneratorsKMP.cpp
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
   CodeGen/IRBuilder.cpp
   CodeGen/Utils.cpp
   CodeGen/RuntimeDebugBuilder.cpp

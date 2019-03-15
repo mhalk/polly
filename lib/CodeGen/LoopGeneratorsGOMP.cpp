@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //===------ LoopGeneratorsGOMP.cpp -  IR helper to create loops -----------===//
+=======
+//===------ LoopGeneratorsGOMP.cpp - IR helper to create loops ------------===//
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // This file contains functions to create scalar and parallel loops as LLVM-IR.
+=======
+// This file contains functions to create parallel loops as LLVM-IR.
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 //
 //===----------------------------------------------------------------------===//
 
@@ -22,6 +30,13 @@
 using namespace llvm;
 using namespace polly;
 
+<<<<<<< HEAD
+=======
+extern int polly::PollyNumThreads;
+extern OMPGeneralSchedulingType polly::PollyScheduling;
+extern int polly::PollyChunkSize;
+
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,
@@ -46,7 +61,12 @@ void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
+<<<<<<< HEAD
   Value *Args[] = {SubFn, SubFnParam, NumberOfThreads, LB, UB, Stride};
+=======
+  Value *Args[] = {SubFn, SubFnParam, Builder.getInt32(PollyNumThreads),
+                   LB,    UB,         Stride};
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 
   Builder.CreateCall(F, Args);
 }
@@ -61,6 +81,7 @@ void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
   createCallJoinThreads();
 }
 
+<<<<<<< HEAD
 std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() {
   std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
   return Arguments;
@@ -76,6 +97,47 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride,
                                               SetVector<Value *> Data,
                                               ValueMapT &Map,
                                               Function **SubFnPtr) {
+=======
+Function *ParallelLoopGeneratorGOMP::prepareSubFnDefinition(Function *F) const {
+  FunctionType *FT =
+      FunctionType::get(Builder.getVoidTy(), {Builder.getInt8PtrTy()}, false);
+  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
+                                     F->getName() + "_polly_subfn", M);
+  // Name the function's arguments
+  SubFn->arg_begin()->setName("polly.par.userContext");
+  return SubFn;
+}
+
+// Create a subfunction of the following (preliminary) structure:
+//
+//    PrevBB
+//       |
+//       v
+//    HeaderBB
+//       |   _____
+//       v  v    |
+//   CheckNextBB  PreHeaderBB
+//       |\       |
+//       | \______/
+//       |
+//       v
+//     ExitBB
+//
+// HeaderBB will hold allocations and loading of variables.
+// CheckNextBB will check for more work.
+// If there is more work to do: go to PreHeaderBB, otherwise go to ExitBB.
+// PreHeaderBB loads the new boundaries (& will lead to the loop body later on).
+// ExitBB marks the end of the parallel execution.
+std::tuple<Value *, Function *>
+ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
+                                       SetVector<Value *> Data,
+                                       ValueMapT &Map) {
+  if (PollyScheduling != OMPGeneralSchedulingType::runtime) {
+    errs() << "warning: Polly's GNU OpenMP backend solely "
+              "supports the scheduling type 'runtime'.\n";
+  }
+
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
   BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
   Value *LBPtr, *UBPtr, *UserContext, *Ret1, *HasNextSchedule, *LB, *UB, *IV;
   Function *SubFn = createSubFnDefinition();
@@ -136,9 +198,14 @@ Value *ParallelLoopGeneratorGOMP::createSubFn(Value *Stride,
   Builder.CreateRetVoid();
 
   Builder.SetInsertPoint(&*LoopBody);
+<<<<<<< HEAD
   *SubFnPtr = SubFn;
 
   return IV;
+=======
+
+  return std::make_tuple(IV, SubFn);
+>>>>>>> wip_polly_llvm_openmp_backend_patch2
 }
 
 Value *ParallelLoopGeneratorGOMP::createCallGetWorkItem(Value *LBPtr,
