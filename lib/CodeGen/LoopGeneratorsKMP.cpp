@@ -25,12 +25,7 @@ using namespace polly;
 
 extern int polly::PollyNumThreads;
 extern OMPGeneralSchedulingType polly::PollyScheduling;
-
-static cl::opt<int>
-    PollyChunkSize("polly-kmp-chunksize",
-                   cl::desc("Chunksize to use by the KMP runtime calls"),
-                   cl::Hidden, cl::init(0), cl::Optional,
-                   cl::cat(PollyCategory));
+extern int polly::PollyChunkSize;
 
 void ParallelLoopGeneratorKMP::createCallSpawnThreads(Value *SubFn,
                                                       Value *SubFnParam,
@@ -88,17 +83,19 @@ void ParallelLoopGeneratorKMP::deployParallelExecution(Value *SubFn,
   createCallSpawnThreads(SubFn, SubFnParam, LB, UB, Stride);
 }
 
-std::vector<Type *> ParallelLoopGeneratorKMP::createSubFnParamList() const {
-  return {Builder.getInt32Ty()->getPointerTo(),
-          Builder.getInt32Ty()->getPointerTo(),
-          LongType,
-          LongType,
-          LongType,
-          Builder.getInt8PtrTy()};
-}
+Function *ParallelLoopGeneratorKMP::prepareSubFnDefinition(Function *F) const {
+  std::vector<Type *> Arguments = {Builder.getInt32Ty()->getPointerTo(),
+                                   Builder.getInt32Ty()->getPointerTo(),
+                                   LongType,
+                                   LongType,
+                                   LongType,
+                                   Builder.getInt8PtrTy()};
 
-void ParallelLoopGeneratorKMP::createSubFnParamNames(
-    Function::arg_iterator AI) const {
+  FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
+  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
+                                     F->getName() + "_polly_subfn", M);
+  // Name the function's arguments
+  Function::arg_iterator AI = SubFn->arg_begin();
   AI->setName("polly.kmpc.global_tid");
   std::advance(AI, 1);
   AI->setName("polly.kmpc.bound_tid");
@@ -110,6 +107,8 @@ void ParallelLoopGeneratorKMP::createSubFnParamNames(
   AI->setName("polly.kmpc.inc");
   std::advance(AI, 1);
   AI->setName("polly.kmpc.shared");
+
+  return SubFn;
 }
 
 // Create a subfunction of the following (preliminary) structure:
@@ -146,7 +145,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Function *SubFn = createSubFnDefinition();
   LLVMContext &Context = SubFn->getContext();
   int align = (is64bitArch) ? 8 : 4;
-  int chunksize = (PollyChunkSize > 0) ? PollyChunkSize : 1;
+  int chunksize = (polly::PollyChunkSize > 0) ? polly::PollyChunkSize : 1;
 
   // Store the previous basic block.
   PrevBB = Builder.GetInsertBlock();
@@ -256,7 +255,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
   // Static (i.e. non-dynamic) scheduling types, are terminated with a fini-call
-  if (PollyScheduling == OMPGeneralSchedulingType::stat) {
+  if (PollyScheduling == OMPGeneralSchedulingType::staticSched) {
     createCallStaticFini(ID);
   }
   Builder.CreateRetVoid();
@@ -337,14 +336,15 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *global_tid,
 
   // Choose between chunked and non-chunked static scheduling types
   // Values are initialized to chunked versions
-  int SchedType = (PollyChunkSize > 0)
-                      ? PollyScheduling
-                      : (PollyScheduling > OMPGeneralSchedulingType::stat)
-                            ? PollyScheduling
-                            : 34 /** static unspecialized / non-chunked */;
+  int SchedType =
+      (polly::PollyChunkSize > 0)
+          ? PollyScheduling
+          : (PollyScheduling > OMPGeneralSchedulingType::staticSched)
+                ? PollyScheduling
+                : 34 /** static unspecialized / non-chunked */;
 
   // The parameter 'Chunk' will hold strictly positive integer values,
-  // regardless of PollyChunkSize's value
+  // regardless of polly::PollyChunkSize's value
   Value *Args[] = {SourceLocationInfo,
                    global_tid,
                    Builder.getInt32(SchedType),

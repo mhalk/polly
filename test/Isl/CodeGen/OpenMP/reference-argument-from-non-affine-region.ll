@@ -4,7 +4,7 @@
 ; RUN: | FileCheck %s -check-prefix=IR
 
 ; RUN: opt %loadPolly -polly-parallel \
-; RUN: -polly-parallel-force -polly-codegen -polly-omp-scheduling=runtime \
+; RUN: -polly-parallel-force -polly-codegen -polly-scheduling=runtime \
 ; RUN: -S -verify-dom-info < %s \
 ; RUN: | FileCheck %s -check-prefix=IR
 

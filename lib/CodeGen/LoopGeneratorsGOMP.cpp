@@ -24,6 +24,7 @@ using namespace polly;
 
 extern int polly::PollyNumThreads;
 extern OMPGeneralSchedulingType polly::PollyScheduling;
+extern int polly::PollyChunkSize;
 
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
@@ -65,14 +66,14 @@ void ParallelLoopGeneratorGOMP::deployParallelExecution(Value *SubFn,
   createCallJoinThreads();
 }
 
-std::vector<Type *> ParallelLoopGeneratorGOMP::createSubFnParamList() const {
-  std::vector<Type *> Arguments(1, Builder.getInt8PtrTy());
-  return Arguments;
-}
-
-void ParallelLoopGeneratorGOMP::createSubFnParamNames(
-    Function::arg_iterator AI) const {
-  AI->setName("polly.par.userContext");
+Function *ParallelLoopGeneratorGOMP::prepareSubFnDefinition(Function *F) const {
+  FunctionType *FT =
+      FunctionType::get(Builder.getVoidTy(), {Builder.getInt8PtrTy()}, false);
+  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
+                                     F->getName() + "_polly_subfn", M);
+  // Name the function's arguments
+  SubFn->arg_begin()->setName("polly.par.userContext");
+  return SubFn;
 }
 
 // Create a subfunction of the following (preliminary) structure:

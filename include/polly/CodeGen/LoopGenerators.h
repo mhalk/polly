@@ -32,7 +32,7 @@ using namespace llvm;
 /// Initialization values taken from OpenMP's enum in kmp.h: sched_type.
 /// Currently, only 'static' scheduling may change from chunked to non-chunked.
 enum OMPGeneralSchedulingType {
-  stat = 33,
+  staticSched = 33,
   dynamic = 35,
   guided = 36,
   runtime = 37
@@ -40,6 +40,7 @@ enum OMPGeneralSchedulingType {
 
 extern int PollyNumThreads;
 extern OMPGeneralSchedulingType PollyScheduling;
+extern int PollyChunkSize;
 
 /// Create a scalar do/for-style loop.
 ///
@@ -195,13 +196,13 @@ public:
   virtual void deployParallelExecution(Value *SubFn, Value *SubFnParam,
                                        Value *LB, Value *UB, Value *Stride) = 0;
 
-  /// Create the parameter definition for the parallel subfunction.
-  virtual std::vector<Type *> createSubFnParamList() const = 0;
-
-  /// Name the parameters of the parallel subfunction.
+  /// Prepare the definition of the parallel subfunction.
+  /// Creates the argument list and names them (as well as the subfunction).
   ///
-  /// @param AI An interator which points at the first argument to name.
-  virtual void createSubFnParamNames(Function::arg_iterator AI) const = 0;
+  /// @param F A pointer to the (parallel) subfunction's parent function.
+  ///
+  /// @return The pointer to the (parallel) subfunction.
+  virtual Function *prepareSubFnDefinition(Function *F) const = 0;
 
   /// Create the parallel subfunction.
   ///

@@ -4,9 +4,9 @@
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-ast -analyze < %s | FileCheck %s -check-prefix=AST-STRIDE4
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-codegen -S < %s | FileCheck %s -check-prefix=IR-STRIDE4
 
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=static -polly-kmp-chunksize=43 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=dynamic -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC
-; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-omp-scheduling=dynamic -polly-kmp-chunksize=4 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC-FOUR
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-scheduling=static -polly-scheduling-chunksize=43 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-scheduling=dynamic -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC
+; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-codegen -polly-omp-backend=LLVM -polly-scheduling=dynamic -polly-scheduling-chunksize=4 -S -verify-dom-info < %s | FileCheck %s -check-prefix=LIBOMP-IR-DYNAMIC-FOUR
 ; RUN: opt %loadPolly -polly-parallel -polly-parallel-force -polly-import-jscop -polly-codegen -polly-omp-backend=LLVM -S < %s | FileCheck %s -check-prefix=LIBOMP-IR-STRIDE4
 
 ; This extensive test case tests the creation of the full set of OpenMP calls

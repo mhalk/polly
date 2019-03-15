@@ -56,9 +56,7 @@ public:
   void deployParallelExecution(Value *SubFn, Value *SubFnParam, Value *LB,
                                Value *UB, Value *Stride) override;
 
-  std::vector<Type *> createSubFnParamList() const override;
-
-  void createSubFnParamNames(Function::arg_iterator AI) const override;
+  virtual Function *prepareSubFnDefinition(Function *F) const override;
 
   std::tuple<Value *, Function *> createSubFn(Value *Stride, AllocaInst *Struct,
                                               SetVector<Value *> UsedValues,

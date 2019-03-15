@@ -26,6 +26,7 @@ using namespace polly;
 
 int polly::PollyNumThreads;
 OMPGeneralSchedulingType polly::PollyScheduling;
+int polly::PollyChunkSize;
 
 static cl::opt<int, true>
     XPollyNumThreads("polly-num-threads",
@@ -34,14 +35,20 @@ static cl::opt<int, true>
                      cl::init(0), cl::cat(PollyCategory));
 
 static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
-    "polly-omp-scheduling",
+    "polly-scheduling",
     cl::desc("Scheduling type of parallel OpenMP for loops"),
-    cl::values(clEnumValN(stat, "static", "Static scheduling"),
+    cl::values(clEnumValN(staticSched, "static", "Static scheduling"),
                clEnumVal(dynamic, "Dynamic scheduling"),
                clEnumVal(guided, "Guided scheduling"),
                clEnumVal(runtime, "Runtime determined (OMP_SCHEDULE)")),
     cl::Hidden, cl::location(polly::PollyScheduling), cl::init(runtime),
     cl::Optional, cl::cat(PollyCategory));
+
+static cl::opt<int, true>
+    PollyChunkSize("polly-scheduling-chunksize",
+                   cl::desc("Chunksize to use by the KMP runtime calls"),
+                   cl::Hidden, cl::location(polly::PollyChunkSize), cl::init(0),
+                   cl::Optional, cl::cat(PollyCategory));
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB
@@ -187,10 +194,7 @@ Value *ParallelLoopGenerator::createParallelLoop(
 
 Function *ParallelLoopGenerator::createSubFnDefinition() {
   Function *F = Builder.GetInsertBlock()->getParent();
-  std::vector<Type *> Arguments = createSubFnParamList();
-  FunctionType *FT = FunctionType::get(Builder.getVoidTy(), Arguments, false);
-  Function *SubFn = Function::Create(FT, Function::InternalLinkage,
-                                     F->getName() + "_polly_subfn", M);
+  Function *SubFn = prepareSubFnDefinition(F);
 
   // Certain backends (e.g., NVPTX) do not support '.'s in function names.
   // Hence, we ensure that all '.'s are replaced by '_'s.
@@ -200,9 +204,6 @@ Function *ParallelLoopGenerator::createSubFnDefinition() {
 
   // Do not run any polly pass on the new function.
   SubFn->addFnAttr(PollySkipFnAttr);
-
-  // Name the function's arguments
-  createSubFnParamNames(SubFn->arg_begin());
 
   return SubFn;
 }
