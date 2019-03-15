@@ -40,26 +40,41 @@ also need to add -mllvm -polly-parallel -lgomp to your CFLAGS.
 Switching the OpenMP backend
 ----------------------------
 
-The CL switch "polly-omp-backend" allows to choose the OpenMP-backend.
+The following CL switch allows to choose Polly's OpenMP-backend:
+```
+       -polly-omp-backend[=BACKEND]
+              choose the OpenMP backend; BACKEND can be 'GNU' (the default) or 'LLVM';
+```
   GNU: Use GNU OpenMP library (default)
   LLVM: Use LLVM OpenMP library
 
 The OpenMP backends can be further influenced using the following CL
 switches:
-  "polly-num-threads": Number of threads to use
-  (default: 0 = auto/OMP runtime)
-  "polly-omp-scheduling": The utilized OpenMP scheduling type
-  (static, dynamic, guided or runtime [default])
-  "polly-kmp-chunksize": Chunksize to use by the LLVM OpenMP runtime calls
-  (default: 1)
-Note that at the time of writing, the GNU backend may only use the additional
-"polly-omp-scheduling" switch, which also has to be set to "runtime".
+```
+       -polly-num-threads[=NUM]
+              set the number of threads to use; NUM may be any positive integer (default: 0, which equals automatic/OMP runtime);
+```
 
-  Example: Use alternative backend with dynamic scheduling, chunksize of one and
-  four threads.
+```
+       -polly-scheduling[=SCHED]
+              set the OpenMP scheduling type; SCHED can be 'static', 'dynamic', 'guided' or 'runtime' (the default);
+```
+
+```
+       -polly-scheduling-chunksize[=CHUNK]
+              set the chunksize (for the selected scheduling type); CHUNK may be any strictly positive integer (otherwise it will default to 1);
+```
+
+Note that at the time of writing, the GNU backend may only use the
+`polly-num-threads` and `polly-scheduling` switches, where the latter also has
+to be set to "runtime".
+
+  Example: Use alternative backend with dynamic scheduling, four threads and
+  chunksize of one.
+  .
   .. code-block:: console
-    -mllvm -polly-omp-backend=LLVM -mllvm -polly-num-threads=4 -mllvm
-    -polly-kmp-chunksize=1 -mllvm -polly-omp-scheduling=dynamic
+    -mllvm -polly-omp-backend=LLVM -mllvm -polly-num-threads=4
+	-mllvm -polly-scheduling=dynamic -mllvm -polly-scheduling-chunksize=1
 
 Automatic Vector code generation
 ================================
