@@ -37,13 +37,13 @@ public:
   ParallelLoopGeneratorKMP(PollyIRBuilder &Builder, LoopInfo &LI,
                            DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {
-    is64bitArch = (LongType->getIntegerBitWidth() == 64);
+    Is64bitArch = (LongType->getIntegerBitWidth() == 64);
     SourceLocationInfo = createSourceLocation();
   }
 
 protected:
   /// True if 'LongType' is 64bit wide, otherwise: False.
-  bool is64bitArch;
+  bool Is64bitArch;
 
   /// The source location struct of this loop.
   /// ident_t = type { i32, i32, i32, i32, i8* }
@@ -82,57 +82,58 @@ public:
   /// Create a runtime library call to request a number of threads.
   /// Which will be used in the next OpenMP section (by the next fork).
   ///
-  /// @param global_tid   The global thread ID.
-  /// @param num_threads  The number of threads to use.
-  void createCallPushNumThreads(Value *global_tid, Value *num_threads);
+  /// @param GlobalThreadID   The global thread ID.
+  /// @param NumThreads       The number of threads to use.
+  void createCallPushNumThreads(Value *GlobalThreadID, Value *NumThreads);
 
   /// Create a runtime library call to prepare the OpenMP runtime.
   /// For dynamically scheduled loops, saving the loop arguments.
   ///
-  /// @param global_tid  The global thread ID.
-  /// @param LB          The loop's lower bound.
-  /// @param UB          The loop's upper bound.
-  /// @param Inc         The loop increment.
-  /// @param Chunk       The chunk size of the parallel loop.
-  void createCallDispatchInit(Value *global_tid, Value *LB, Value *UB,
-                              Value *Inc, Value *Chunk);
+  /// @param GlobalThreadID   The global thread ID.
+  /// @param LB               The loop's lower bound.
+  /// @param UB               The loop's upper bound.
+  /// @param Inc              The loop increment.
+  /// @param ChunkSize        The chunk size of the parallel loop.
+  void createCallDispatchInit(Value *GlobalThreadID, Value *LB, Value *UB,
+                              Value *Inc, Value *ChunkSize);
 
   /// Create a runtime library call to retrieve the next (dynamically)
   /// allocated chunk of work for this thread.
   ///
-  /// @param global_tid  The global thread ID.
-  /// @param pIsLast     Pointer to a flag, which is set to 1 if this is
-  ///                    the last chunk of work, or 0 otherwise.
-  /// @param pLB         Pointer to the lower bound for the next chunk of work.
-  /// @param pUB         Pointer to the upper bound for the next chunk of work.
-  /// @param pStride     Pointer to the stride for the next chunk of work.
+  /// @param GlobalThreadID   The global thread ID.
+  /// @param IsLastPtr        Pointer to a flag, which is set to 1 if this is
+  ///                         the last chunk of work, or 0 otherwise.
+  /// @param LBPtr            Pointer to the lower bound for the next chunk.
+  /// @param UBPtr            Pointer to the upper bound for the next chunk.
+  /// @param StridePtr        Pointer to the stride for the next chunk.
   ///
   /// @return A Value which holds 1 if there is work to be done, 0 otherwise.
-  Value *createCallDispatchNext(Value *global_tid, Value *pIsLast, Value *pLB,
-                                Value *pUB, Value *pStride);
+  Value *createCallDispatchNext(Value *GlobalThreadID, Value *IsLastPtr,
+                                Value *LBPtr, Value *UBPtr, Value *StridePtr);
 
   /// Create a runtime library call to prepare the OpenMP runtime.
   /// For statically scheduled loops, saving the loop arguments.
   ///
-  /// @param global_tid  The global thread ID.
-  /// @param pIsLast     Pointer to a flag, which is set to 1 if this is
-  ///                    the last chunk of work, or 0 otherwise.
-  /// @param pLB         Pointer to the lower bound for the next chunk of work.
-  /// @param pUB         Pointer to the upper bound for the next chunk of work.
-  /// @param pStride     Pointer to the stride for the next chunk of work.
-  /// @param Chunk       The chunk size of the parallel loop.
-  void createCallStaticInit(Value *global_tid, Value *pIsLast, Value *pLB,
-                            Value *pUB, Value *pStride, Value *Chunk);
+  /// @param GlobalThreadID   The global thread ID.
+  /// @param IsLastPtr        Pointer to a flag, which is set to 1 if this is
+  ///                         the last chunk of work, or 0 otherwise.
+  /// @param LBPtr            Pointer to the lower bound for the next chunk.
+  /// @param UBPtr            Pointer to the upper bound for the next chunk.
+  /// @param StridePtr        Pointer to the stride for the next chunk.
+  /// @param ChunkSize        The chunk size of the parallel loop.
+  void createCallStaticInit(Value *GlobalThreadID, Value *IsLastPtr,
+                            Value *LBPtr, Value *UBPtr, Value *StridePtr,
+                            Value *ChunkSize);
 
   /// Create a runtime library call to mark the end of
   /// a statically scheduled loop.
   ///
-  /// @param global_tid  The global thread ID.
-  void createCallStaticFini(Value *global_tid);
+  /// @param GlobalThreadID   The global thread ID.
+  void createCallStaticFini(Value *GlobalThreadID);
 
   /// Create the current source location.
   ///
-  /// Known issue: Generates only(!) dummy values.
+  /// TODO: Generates only(!) dummy values.
   GlobalVariable *createSourceLocation();
 };
 } // end namespace polly

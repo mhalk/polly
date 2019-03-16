@@ -82,7 +82,7 @@ STATISTIC(VectorLoops, "Number of generated vector for-loops");
 STATISTIC(IfConditions, "Number of generated if-conditions");
 
 /// OpenMP backend options
-enum OpenMPBackend { GNU, LLVM };
+enum class OpenMPBackend { GNU, LLVM };
 
 static cl::opt<bool> PollyGenerateRTCPrint(
     "polly-codegen-emit-rtc-print",
@@ -105,8 +105,9 @@ static cl::opt<int> PollyTargetFirstLevelCacheLineSize(
 
 static cl::opt<OpenMPBackend> PollyOmpBackend(
     "polly-omp-backend", cl::desc("Choose the OpenMP library to use:"),
-    cl::values(clEnumVal(GNU, "GNU OpenMP"), clEnumVal(LLVM, "LLVM OpenMP")),
-    cl::Hidden, cl::init(GNU), cl::cat(PollyCategory));
+    cl::values(clEnumValN(OpenMPBackend::GNU, "GNU", "GNU OpenMP"),
+               clEnumValN(OpenMPBackend::LLVM, "LLVM", "LLVM OpenMP")),
+    cl::Hidden, cl::init(OpenMPBackend::GNU), cl::cat(PollyCategory));
 
 isl::ast_expr IslNodeBuilder::getUpperBound(isl::ast_node For,
                                             ICmpInst::Predicate &Predicate) {
@@ -682,7 +683,6 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
 
   switch (PollyOmpBackend) {
   case OpenMPBackend::GNU:
-  default:
     ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
         new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL));
     break;

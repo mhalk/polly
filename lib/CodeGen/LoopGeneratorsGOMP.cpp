@@ -22,10 +22,6 @@
 using namespace llvm;
 using namespace polly;
 
-extern int polly::PollyNumThreads;
-extern OMPGeneralSchedulingType polly::PollyScheduling;
-extern int polly::PollyChunkSize;
-
 void ParallelLoopGeneratorGOMP::createCallSpawnThreads(Value *SubFn,
                                                        Value *SubFnParam,
                                                        Value *LB, Value *UB,
@@ -101,23 +97,30 @@ ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                        SetVector<Value *> Data,
                                        ValueMapT &Map) {
   if (PollyScheduling != OMPGeneralSchedulingType::runtime) {
+    // User tried to influence the scheduling type (currently not supported)
     errs() << "warning: Polly's GNU OpenMP backend solely "
               "supports the scheduling type 'runtime'.\n";
   }
 
-  BasicBlock *PrevBB, *HeaderBB, *ExitBB, *CheckNextBB, *PreHeaderBB, *AfterBB;
-  Value *LBPtr, *UBPtr, *UserContext, *Ret1, *HasNextSchedule, *LB, *UB, *IV;
+  if (PollyChunkSize != 0) {
+    // User tried to influence the chunk size (currently not supported)
+    errs() << "warning: Polly's GNU OpenMP backend solely "
+              "supports the default chunk size.\n";
+  }
+
   Function *SubFn = createSubFnDefinition();
   LLVMContext &Context = SubFn->getContext();
 
   // Store the previous basic block.
-  PrevBB = Builder.GetInsertBlock();
+  BasicBlock *PrevBB = Builder.GetInsertBlock();
 
   // Create basic blocks.
-  HeaderBB = BasicBlock::Create(Context, "polly.par.setup", SubFn);
-  ExitBB = BasicBlock::Create(Context, "polly.par.exit", SubFn);
-  CheckNextBB = BasicBlock::Create(Context, "polly.par.checkNext", SubFn);
-  PreHeaderBB = BasicBlock::Create(Context, "polly.par.loadIVBounds", SubFn);
+  BasicBlock *HeaderBB = BasicBlock::Create(Context, "polly.par.setup", SubFn);
+  BasicBlock *ExitBB = BasicBlock::Create(Context, "polly.par.exit", SubFn);
+  BasicBlock *CheckNextBB =
+      BasicBlock::Create(Context, "polly.par.checkNext", SubFn);
+  BasicBlock *PreHeaderBB =
+      BasicBlock::Create(Context, "polly.par.loadIVBounds", SubFn);
 
   DT.addNewBlock(HeaderBB, PrevBB);
   DT.addNewBlock(ExitBB, HeaderBB);
@@ -126,9 +129,9 @@ ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
 
   // Fill up basic block HeaderBB.
   Builder.SetInsertPoint(HeaderBB);
-  LBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.LBPtr");
-  UBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.UBPtr");
-  UserContext = Builder.CreateBitCast(
+  Value *LBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.LBPtr");
+  Value *UBPtr = Builder.CreateAlloca(LongType, nullptr, "polly.par.UBPtr");
+  Value *UserContext = Builder.CreateBitCast(
       &*SubFn->arg_begin(), StructData->getType(), "polly.par.userContext");
 
   extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
@@ -137,15 +140,15 @@ ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
 
   // Add code to check if another set of iterations will be executed.
   Builder.SetInsertPoint(CheckNextBB);
-  Ret1 = createCallGetWorkItem(LBPtr, UBPtr);
-  HasNextSchedule = Builder.CreateTrunc(Ret1, Builder.getInt1Ty(),
-                                        "polly.par.hasNextScheduleBlock");
+  Value *Next = createCallGetWorkItem(LBPtr, UBPtr);
+  Value *HasNextSchedule = Builder.CreateTrunc(
+      Next, Builder.getInt1Ty(), "polly.par.hasNextScheduleBlock");
   Builder.CreateCondBr(HasNextSchedule, PreHeaderBB, ExitBB);
 
   // Add code to load the iv bounds for this set of iterations.
   Builder.SetInsertPoint(PreHeaderBB);
-  LB = Builder.CreateLoad(LBPtr, "polly.par.LB");
-  UB = Builder.CreateLoad(UBPtr, "polly.par.UB");
+  Value *LB = Builder.CreateLoad(LBPtr, "polly.par.LB");
+  Value *UB = Builder.CreateLoad(UBPtr, "polly.par.UB");
 
   // Subtract one as the upper bound provided by OpenMP is a < comparison
   // whereas the codegenForSequential function creates a <= comparison.
@@ -154,8 +157,10 @@ ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
 
   Builder.CreateBr(CheckNextBB);
   Builder.SetInsertPoint(&*--Builder.GetInsertPoint());
-  IV = createLoop(LB, UB, Stride, Builder, LI, DT, AfterBB, ICmpInst::ICMP_SLE,
-                  nullptr, true, /* UseGuard */ false);
+  BasicBlock *AfterBB;
+  Value *IV =
+      createLoop(LB, UB, Stride, Builder, LI, DT, AfterBB, ICmpInst::ICMP_SLE,
+                 nullptr, true, /* UseGuard */ false);
 
   BasicBlock::iterator LoopBody = Builder.GetInsertPoint();
 

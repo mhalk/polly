@@ -159,7 +159,7 @@ protected:
   /// The type of a "long" on this hardware used for backend calls.
   Type *LongType;
 
-  /// The current module.
+  /// The current module
   Module *M;
 
 public:

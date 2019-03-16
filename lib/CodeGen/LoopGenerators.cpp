@@ -29,12 +29,12 @@ OMPGeneralSchedulingType polly::PollyScheduling;
 int polly::PollyChunkSize;
 
 static cl::opt<int, true>
-    XPollyNumThreads("polly-num-threads",
-                     cl::desc("Number of threads to use (0 = auto)"),
-                     cl::Hidden, cl::location(polly::PollyNumThreads),
-                     cl::init(0), cl::cat(PollyCategory));
+    PollyNumThreads("polly-num-threads",
+                    cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
+                    cl::location(polly::PollyNumThreads), cl::init(0),
+                    cl::cat(PollyCategory));
 
-static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
+static cl::opt<OMPGeneralSchedulingType, true> PollyScheduling(
     "polly-scheduling",
     cl::desc("Scheduling type of parallel OpenMP for loops"),
     cl::values(clEnumValN(staticSched, "static", "Static scheduling"),
@@ -46,9 +46,10 @@ static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
 
 static cl::opt<int, true>
     PollyChunkSize("polly-scheduling-chunksize",
-                   cl::desc("Chunksize to use by the KMP runtime calls"),
+                   cl::desc("Chunksize to use by the OpenMP runtime calls"),
                    cl::Hidden, cl::location(polly::PollyChunkSize), cl::init(0),
                    cl::Optional, cl::cat(PollyCategory));
+
 // We generate a loop of either of the following structures:
 //
 //              BeforeBB                      BeforeBB
