@@ -135,8 +135,6 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
                                       SetVector<Value *> Data, ValueMapT &Map) {
   Function *SubFn = createSubFnDefinition();
   LLVMContext &Context = SubFn->getContext();
-  int Alignment = (Is64bitArch) ? 8 : 4;
-  int ChunkSizeInt = (polly::PollyChunkSize > 0) ? polly::PollyChunkSize : 1;
 
   // Store the previous basic block.
   BasicBlock *PrevBB = Builder.GetInsertBlock();
@@ -163,11 +161,13 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Value *StridePtr =
       Builder.CreateAlloca(LongType, nullptr, "polly.par.StridePtr");
 
-  // Get iterator for retrieving the parameters
+  // Get iterator for retrieving the previously defined parameters.
   Function::arg_iterator AI = SubFn->arg_begin();
-  // First argument holds global thread id. Then move iterator to LB.
+  // First argument holds "global thread ID".
   Value *IDPtr = &*AI;
+  // Skip "bound thread ID" since it is not used (but had to be defined).
   std::advance(AI, 2);
+  // Move iterator to: LB, UB, Stride, Shared variable struct.
   Value *LB = &*AI;
   std::advance(AI, 1);
   Value *UB = &*AI;
@@ -182,6 +182,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   extractValuesFromStruct(Data, StructData->getAllocatedType(), UserContext,
                           Map);
 
+  const int Alignment = (is64BitArch()) ? 8 : 4;
   Value *ID =
       Builder.CreateAlignedLoad(IDPtr, Alignment, "polly.par.global_tid");
 
@@ -195,10 +196,12 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Value *AdjustedUB = Builder.CreateAdd(UB, ConstantInt::get(LongType, -1),
                                         "polly.indvar.UBAdjusted");
 
-  Value *ChunkSize = ConstantInt::get(LongType, ChunkSizeInt);
+  Value *ChunkSize = ConstantInt::get(LongType, std::max<int>(polly::PollyChunkSize, 1));
 
   // "DYNAMIC" scheduling types are handled below (including 'runtime')
-  if (PollyScheduling >= OMPGeneralSchedulingType::dynamic) {
+  if ((PollyScheduling == OMPGeneralSchedulingType::OMPGST_Dynamic) ||
+      (PollyScheduling == OMPGeneralSchedulingType::OMPGST_Guided) ||
+      (PollyScheduling == OMPGeneralSchedulingType::OMPGST_Runtime)) {
     UB = AdjustedUB;
     createCallDispatchInit(ID, LB, UB, Stride, ChunkSize);
     Value *HasWork =
@@ -216,13 +219,13 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
     Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
     Builder.SetInsertPoint(PreHeaderBB);
-    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.init");
+    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
     UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
   } else {
     // "STATIC" scheduling types are handled below
     createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
 
-    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.init");
+    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
     UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
 
     Value *HasWork = Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, UB,
@@ -253,7 +256,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
   // Static (i.e. non-dynamic) scheduling types, are terminated with a fini-call
-  if (PollyScheduling == OMPGeneralSchedulingType::staticSched) {
+  if (PollyScheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
     createCallStaticFini(ID);
   }
   Builder.CreateRetVoid();
@@ -277,8 +280,7 @@ Value *ParallelLoopGeneratorKMP::createCallGlobalThreadNum() {
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  Value *RetVal = Builder.CreateCall(F, {SourceLocationInfo});
-  return RetVal;
+  return Builder.CreateCall(F, {SourceLocationInfo});
 }
 
 void ParallelLoopGeneratorKMP::createCallPushNumThreads(Value *GlobalThreadID,
@@ -309,7 +311,7 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
                                                     Value *StridePtr,
                                                     Value *ChunkSize) {
   const std::string Name =
-      Is64bitArch ? "__kmpc_for_static_init_8" : "__kmpc_for_static_init_4";
+      is64BitArch() ? "__kmpc_for_static_init_8" : "__kmpc_for_static_init_4";
   Function *F = M->getFunction(Name);
   StructType *IdentTy = M->getTypeByName("struct.ident_t");
 
@@ -332,13 +334,8 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
   }
 
   // Choose between chunked and non-chunked static scheduling types
-  // Values are initialized to chunked versions
-  int SchedType =
-      (polly::PollyChunkSize > 0)
-          ? PollyScheduling
-          : (PollyScheduling > OMPGeneralSchedulingType::staticSched)
-                ? PollyScheduling
-                : 34 /** static unspecialized / non-chunked */;
+  // Note: Values are initialized to chunked versions
+  int SchedType = getSchedType(polly::PollyChunkSize, polly::PollyScheduling);
 
   // The parameter 'ChunkSize' will hold strictly positive integer values,
   // regardless of polly::PollyChunkSize's value
@@ -378,7 +375,7 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *GlobalThreadID,
                                                       Value *Inc,
                                                       Value *ChunkSize) {
   const std::string Name =
-      Is64bitArch ? "__kmpc_dispatch_init_8" : "__kmpc_dispatch_init_4";
+      is64BitArch() ? "__kmpc_dispatch_init_8" : "__kmpc_dispatch_init_4";
   Function *F = M->getFunction(Name);
   StructType *IdentTy = M->getTypeByName("struct.ident_t");
 
@@ -399,9 +396,11 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *GlobalThreadID,
   }
 
   // Note that for 'dynamic' scheduling types, only chunked versions are used
+  int SchedType = getSchedType(polly::PollyChunkSize, polly::PollyScheduling);
+
   Value *Args[] = {SourceLocationInfo,
                    GlobalThreadID,
-                   Builder.getInt32(PollyScheduling),
+                   Builder.getInt32(SchedType),
                    LB,
                    UB,
                    Inc,
@@ -416,7 +415,7 @@ Value *ParallelLoopGeneratorKMP::createCallDispatchNext(Value *GlobalThreadID,
                                                         Value *UBPtr,
                                                         Value *StridePtr) {
   const std::string Name =
-      Is64bitArch ? "__kmpc_dispatch_next_8" : "__kmpc_dispatch_next_4";
+      is64BitArch() ? "__kmpc_dispatch_next_8" : "__kmpc_dispatch_next_4";
   Function *F = M->getFunction(Name);
   StructType *IdentTy = M->getTypeByName("struct.ident_t");
 
@@ -438,15 +437,14 @@ Value *ParallelLoopGeneratorKMP::createCallDispatchNext(Value *GlobalThreadID,
   Value *Args[] = {SourceLocationInfo, GlobalThreadID, IsLastPtr, LBPtr, UBPtr,
                    StridePtr};
 
-  Value *RetVal = Builder.CreateCall(F, Args);
-  return RetVal;
+  return Builder.CreateCall(F, Args);
 }
 
 // TODO: This function currently creates a source location dummy. It might be
 // necessary to (actually) provide information, in the future.
 GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
-  const std::string Name = ".loc.dummy";
-  GlobalVariable *SourceLocDummy = M->getGlobalVariable(Name);
+  const std::string LocName = ".loc.dummy";
+  GlobalVariable *SourceLocDummy = M->getGlobalVariable(LocName);
 
   if (SourceLocDummy == nullptr) {
     StructType *IdentTy = M->getTypeByName("struct.ident_t");
@@ -462,8 +460,8 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
                                    "struct.ident_t", false);
     }
 
-    int Length = 23;
-    auto ArrayType = llvm::ArrayType::get(Builder.getInt8Ty(), Length);
+    const int Length = 23;
+    const auto ArrayType = llvm::ArrayType::get(Builder.getInt8Ty(), Length);
 
     // Global Variable Definitions
     GlobalVariable *StrVar = new GlobalVariable(
@@ -471,14 +469,14 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
     StrVar->setAlignment(1);
 
     SourceLocDummy = new GlobalVariable(
-        *M, IdentTy, true, GlobalValue::PrivateLinkage, nullptr, ".loc.dummy");
+        *M, IdentTy, true, GlobalValue::PrivateLinkage, nullptr, LocName);
     SourceLocDummy->setAlignment(8);
 
     // Constant Definitions
-    Constant *InitStr = ConstantDataArray::getString(
+    const Constant *InitStr = ConstantDataArray::getString(
         M->getContext(), "Source location dummy.", true);
 
-    Value *StrPtr = Builder.CreateInBoundsGEP(
+    const Value *StrPtr = Builder.CreateInBoundsGEP(
         ArrayType, StrVar, {Builder.getInt32(0), Builder.getInt32(0)});
 
     Constant *LocInitStruct = ConstantStruct::get(
@@ -486,9 +484,23 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
                   Builder.getInt32(0), (Constant *)StrPtr});
 
     // Initialize variables
-    StrVar->setInitializer(InitStr);
+    StrVar->setInitializer(const_cast<Constant *>(InitStr));
     SourceLocDummy->setInitializer(LocInitStruct);
   }
 
   return SourceLocDummy;
+}
+
+bool ParallelLoopGeneratorKMP::is64BitArch() {
+  return LongType->getIntegerBitWidth() == 64;
+}
+
+int ParallelLoopGeneratorKMP::getSchedType(
+      int ChunkSize, OMPGeneralSchedulingType Scheduling) {
+  if(ChunkSize > 0) return OMPGeneralSchedulingTypeToInt(Scheduling);
+  if (Scheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
+      return OMPGeneralSchedulingTypeToInt(
+          OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
+  }
+  return OMPGeneralSchedulingTypeToInt(Scheduling);
 }

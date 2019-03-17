@@ -37,17 +37,28 @@ public:
   ParallelLoopGeneratorKMP(PollyIRBuilder &Builder, LoopInfo &LI,
                            DominatorTree &DT, const DataLayout &DL)
       : ParallelLoopGenerator(Builder, LI, DT, DL) {
-    Is64bitArch = (LongType->getIntegerBitWidth() == 64);
     SourceLocationInfo = createSourceLocation();
   }
 
 protected:
   /// True if 'LongType' is 64bit wide, otherwise: False.
-  bool Is64bitArch;
+  bool is64BitArch();
 
   /// The source location struct of this loop.
   /// ident_t = type { i32, i32, i32, i32, i8* }
   GlobalValue *SourceLocationInfo;
+
+  /// Convert the combination of given chunk size and scheduling type (which
+  /// might have been set via the command line) into the corresponding integer.
+  /// This may result (e.g.) in a 'change' from "static chunked" scheduling to
+  /// "static non-chunked" (regarding the provided and returned integer
+  /// representations).
+  ///
+  /// @param ChunkSize    The chunk size, set via command line or its default.
+  /// @param Scheduling   The scheduling, set via command line or its default.
+  ///
+  /// @return The corresponding integer value.
+  int getSchedType(int ChunkSize, OMPGeneralSchedulingType Scheduling);
 
 public:
   // The functions below may be used if one does not want to generate a

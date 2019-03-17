@@ -31,11 +31,12 @@ using namespace llvm;
 /// General scheduling types of parallel OpenMP for loops.
 /// Initialization values taken from OpenMP's enum in kmp.h: sched_type.
 /// Currently, only 'static' scheduling may change from chunked to non-chunked.
-enum OMPGeneralSchedulingType {
-  staticSched = 33,
-  dynamic = 35,
-  guided = 36,
-  runtime = 37
+enum class OMPGeneralSchedulingType {
+  OMPGST_StaticChunked = 33,
+  OMPGST_StaticNonChunked = 34,
+  OMPGST_Dynamic = 35,
+  OMPGST_Guided = 36,
+  OMPGST_Runtime = 37
 };
 
 extern int PollyNumThreads;
@@ -161,6 +162,14 @@ protected:
 
   /// The current module
   Module *M;
+
+  /// Convert the given scheduling type (as enum) into the corresponding integer
+  /// value, which represents the scheduling type.
+  ///
+  /// @param Ty   The OMPGeneralSchedulingType enum to convert.
+  ///
+  /// @return The corresponding integer value.
+  int OMPGeneralSchedulingTypeToInt(OMPGeneralSchedulingType Ty);
 
 public:
   /// Create a struct for all @p Values and store them in there.

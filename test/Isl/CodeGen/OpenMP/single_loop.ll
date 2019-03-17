@@ -113,12 +113,12 @@
 ; LIBOMP-IR-NEXT:   store i64 %polly.kmpc.inc, i64* %polly.par.StridePtr
 ; LIBOMP-IR-NEXT:   %polly.indvar.UBAdjusted = add i64 %polly.kmpc.ub, -1
 ; LIBOMP-IR-NEXT:   call void @__kmpc_for_static_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 33, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 43)
-; LIBOMP-IR-NEXT:   %polly.indvar.init = load i64, i64* %polly.par.LBPtr
+; LIBOMP-IR-NEXT:   %polly.indvar.LB = load i64, i64* %polly.par.LBPtr
 ; LIBOMP-IR-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
 ; LIBOMP-IR-NEXT:   %polly.UB_slt_adjUB = icmp slt i64 %polly.indvar.UB, %polly.indvar.UBAdjusted
 ; LIBOMP-IR-NEXT:   %{{[0-9]+}} = select i1 %polly.UB_slt_adjUB, i64 %polly.indvar.UB, i64 %polly.indvar.UBAdjusted
 ; LIBOMP-IR-NEXT:   store i64 %{{[0-9]+}}, i64* %polly.par.UBPtr
-; LIBOMP-IR-NEXT:   %polly.hasIteration = icmp sle i64 %polly.indvar.init, %{{[0-9]+}}
+; LIBOMP-IR-NEXT:   %polly.hasIteration = icmp sle i64 %polly.indvar.LB, %{{[0-9]+}}
 ; LIBOMP-IR:   br i1 %polly.hasIteration, label %polly.par.loadIVBounds, label %polly.par.exit
 
 ; LIBOMP-IR-LABEL: polly.par.exit:
@@ -135,7 +135,7 @@
 ; LIBOMP-IR-NEXT:   br label %polly.par.checkNext
 
 ; LIBOMP-IR-LABEL: polly.loop_header:
-; LIBOMP-IR-NEXT:   %polly.indvar = phi i64 [ %polly.indvar.init, %polly.loop_preheader ], [ %polly.indvar_next, %polly.stmt.S ]
+; LIBOMP-IR-NEXT:   %polly.indvar = phi i64 [ %polly.indvar.LB, %polly.loop_preheader ], [ %polly.indvar_next, %polly.stmt.S ]
 ; LIBOMP-IR-NEXT:   br label %polly.stmt.S
 
 ; LIBOMP-IR-LABEL: polly.stmt.S:
@@ -164,7 +164,7 @@
 ; LIBOMP-IR-DYNAMIC-NEXT:   br i1 %polly.hasWork, label %polly.par.loadIVBounds, label %polly.par.exit
 
 ; LIBOMP-IR-DYNAMIC-LABEL: polly.par.loadIVBounds:
-; LIBOMP-IR-DYNAMIC-NEXT:   %polly.indvar.init = load i64, i64* %polly.par.LBPtr
+; LIBOMP-IR-DYNAMIC-NEXT:   %polly.indvar.LB = load i64, i64* %polly.par.LBPtr
 ; LIBOMP-IR-DYNAMIC-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
 ; LIBOMP-IR-DYNAMIC-NEXT:   br label %polly.loop_preheader
 
