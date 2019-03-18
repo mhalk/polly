@@ -32,11 +32,11 @@ using namespace llvm;
 /// Initialization values taken from OpenMP's enum in kmp.h: sched_type.
 /// Currently, only 'static' scheduling may change from chunked to non-chunked.
 enum class OMPGeneralSchedulingType {
-  OMPGST_StaticChunked = 33,
-  OMPGST_StaticNonChunked = 34,
-  OMPGST_Dynamic = 35,
-  OMPGST_Guided = 36,
-  OMPGST_Runtime = 37
+  StaticChunked = 33,
+  StaticNonChunked = 34,
+  Dynamic = 35,
+  Guided = 36,
+  Runtime = 37
 };
 
 extern int PollyNumThreads;

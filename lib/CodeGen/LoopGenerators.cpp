@@ -37,16 +37,16 @@ static cl::opt<int, true>
 static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
     "polly-scheduling",
     cl::desc("Scheduling type of parallel OpenMP for loops"),
-    cl::values(clEnumValN(OMPGeneralSchedulingType::OMPGST_StaticChunked,
-                          "static", "Static scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Dynamic, "dynamic",
+    cl::values(clEnumValN(OMPGeneralSchedulingType::StaticChunked, "static",
+                          "Static scheduling"),
+               clEnumValN(OMPGeneralSchedulingType::Dynamic, "dynamic",
                           "Dynamic scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Guided, "guided",
+               clEnumValN(OMPGeneralSchedulingType::Guided, "guided",
                           "Guided scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Runtime, "runtime",
+               clEnumValN(OMPGeneralSchedulingType::Runtime, "runtime",
                           "Runtime determined (OMP_SCHEDULE)")),
     cl::Hidden, cl::location(polly::PollyScheduling),
-    cl::init(OMPGeneralSchedulingType::OMPGST_Runtime), cl::Optional,
+    cl::init(OMPGeneralSchedulingType::Runtime), cl::Optional,
     cl::cat(PollyCategory));
 
 static cl::opt<int, true>

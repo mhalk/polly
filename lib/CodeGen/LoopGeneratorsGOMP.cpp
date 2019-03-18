@@ -96,7 +96,7 @@ std::tuple<Value *, Function *>
 ParallelLoopGeneratorGOMP::createSubFn(Value *Stride, AllocaInst *StructData,
                                        SetVector<Value *> Data,
                                        ValueMapT &Map) {
-  if (PollyScheduling != OMPGeneralSchedulingType::OMPGST_Runtime) {
+  if (PollyScheduling != OMPGeneralSchedulingType::Runtime) {
     // User tried to influence the scheduling type (currently not supported)
     errs() << "warning: Polly's GNU OpenMP backend solely "
               "supports the scheduling type 'runtime'.\n";

@@ -200,9 +200,9 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       ConstantInt::get(LongType, std::max<int>(PollyChunkSize, 1));
 
   switch (PollyScheduling) {
-  case OMPGeneralSchedulingType::OMPGST_Dynamic:
-  case OMPGeneralSchedulingType::OMPGST_Guided:
-  case OMPGeneralSchedulingType::OMPGST_Runtime:
+  case OMPGeneralSchedulingType::Dynamic:
+  case OMPGeneralSchedulingType::Guided:
+  case OMPGeneralSchedulingType::Runtime:
     // "DYNAMIC" scheduling types are handled below (including 'runtime')
     {
       UB = AdjustedUB;
@@ -226,8 +226,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
     }
     break;
-  case OMPGeneralSchedulingType::OMPGST_StaticChunked:
-  case OMPGeneralSchedulingType::OMPGST_StaticNonChunked:
+  case OMPGeneralSchedulingType::StaticChunked:
+  case OMPGeneralSchedulingType::StaticNonChunked:
     // "STATIC" scheduling types are handled below
     {
       createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
@@ -266,7 +266,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   // Add code to terminate this subfunction.
   Builder.SetInsertPoint(ExitBB);
   // Static (i.e. non-dynamic) scheduling types, are terminated with a fini-call
-  if (PollyScheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
+  if (PollyScheduling == OMPGeneralSchedulingType::StaticChunked) {
     createCallStaticFini(ID);
   }
   Builder.CreateRetVoid();
@@ -348,7 +348,7 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
   Value *Args[] = {
       SourceLocationInfo,
       GlobalThreadID,
-      Builder.getInt32(getSchedType(PollyChunkSize, PollyScheduling)),
+      Builder.getInt32(int(getSchedType(PollyChunkSize, PollyScheduling))),
       IsLastPtr,
       LBPtr,
       UBPtr,
@@ -407,7 +407,7 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *GlobalThreadID,
   Value *Args[] = {
       SourceLocationInfo,
       GlobalThreadID,
-      Builder.getInt32(getSchedType(PollyChunkSize, PollyScheduling)),
+      Builder.getInt32(int(getSchedType(PollyChunkSize, PollyScheduling))),
       LB,
       UB,
       Inc,
@@ -503,15 +503,11 @@ bool ParallelLoopGeneratorKMP::is64BitArch() {
   return (LongType->getIntegerBitWidth() == 64);
 }
 
-int ParallelLoopGeneratorKMP::getSchedType(
+OMPGeneralSchedulingType ParallelLoopGeneratorKMP::getSchedType(
     int ChunkSize, OMPGeneralSchedulingType Scheduling) const {
-  if (ChunkSize > 0) {
-    return int(Scheduling);
+  if (ChunkSize == 0 && Scheduling == OMPGeneralSchedulingType::StaticChunked) {
+    return OMPGeneralSchedulingType::StaticNonChunked;
   }
 
-  if (Scheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
-    return int(OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
-  }
-
-  return int(Scheduling);
+  return Scheduling;
 }

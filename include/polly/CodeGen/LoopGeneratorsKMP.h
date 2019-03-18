@@ -46,16 +46,17 @@ protected:
   GlobalValue *SourceLocationInfo;
 
   /// Convert the combination of given chunk size and scheduling type (which
-  /// might have been set via the command line) into the corresponding integer.
-  /// This may result (e.g.) in a 'change' from "static chunked" scheduling to
-  /// "static non-chunked" (regarding the provided and returned integer
-  /// representations).
+  /// might have been set via the command line) into the corresponding
+  /// scheduling type. This may result (e.g.) in a 'change' from
+  /// "static chunked" scheduling to "static non-chunked" (regarding the
+  /// provided and returned scheduling types).
   ///
   /// @param ChunkSize    The chunk size, set via command line or its default.
   /// @param Scheduling   The scheduling, set via command line or its default.
   ///
-  /// @return The corresponding integer value.
-  int getSchedType(int ChunkSize, OMPGeneralSchedulingType Scheduling) const;
+  /// @return The corresponding OMPGeneralSchedulingType.
+  OMPGeneralSchedulingType
+  getSchedType(int ChunkSize, OMPGeneralSchedulingType Scheduling) const;
 
   /// Returns True if 'LongType' is 64bit wide, otherwise: False.
   bool is64BitArch();
