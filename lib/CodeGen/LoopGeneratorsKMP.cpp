@@ -468,8 +468,8 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
           StructType::create(M->getContext(), LocMembers, StructName, false);
     }
 
-    const int Length = 23;
-    const auto ArrayType = llvm::ArrayType::get(Builder.getInt8Ty(), Length);
+    const auto ArrayType =
+        llvm::ArrayType::get(Builder.getInt8Ty(), /* Length */ 23);
 
     // Global Variable Definitions
     GlobalVariable *StrVar = new GlobalVariable(
@@ -505,9 +505,8 @@ bool ParallelLoopGeneratorKMP::is64BitArch() {
 
 OMPGeneralSchedulingType ParallelLoopGeneratorKMP::getSchedType(
     int ChunkSize, OMPGeneralSchedulingType Scheduling) const {
-  if (ChunkSize == 0 && Scheduling == OMPGeneralSchedulingType::StaticChunked) {
+  if (ChunkSize == 0 && Scheduling == OMPGeneralSchedulingType::StaticChunked)
     return OMPGeneralSchedulingType::StaticNonChunked;
-  }
 
   return Scheduling;
 }

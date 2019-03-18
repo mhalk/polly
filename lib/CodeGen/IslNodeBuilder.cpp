@@ -683,12 +683,11 @@ void IslNodeBuilder::createForParallel(__isl_take isl_ast_node *For) {
 
   switch (PollyOmpBackend) {
   case OpenMPBackend::GNU:
-    ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
+    ParallelLoopGenPtr.reset(
         new ParallelLoopGeneratorGOMP(Builder, LI, DT, DL));
     break;
   case OpenMPBackend::LLVM:
-    ParallelLoopGenPtr = std::unique_ptr<ParallelLoopGenerator>(
-        new ParallelLoopGeneratorKMP(Builder, LI, DT, DL));
+    ParallelLoopGenPtr.reset(new ParallelLoopGeneratorKMP(Builder, LI, DT, DL));
     break;
   }
 
