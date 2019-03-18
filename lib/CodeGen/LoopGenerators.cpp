@@ -250,8 +250,3 @@ void ParallelLoopGenerator::extractValuesFromStruct(
     Map[OldValues[i]] = NewValue;
   }
 }
-
-int ParallelLoopGenerator::OMPGeneralSchedulingTypeToInt(
-    OMPGeneralSchedulingType Ty) {
-  return int(Ty);
-}

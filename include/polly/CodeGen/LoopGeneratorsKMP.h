@@ -41,9 +41,6 @@ public:
   }
 
 protected:
-  /// True if 'LongType' is 64bit wide, otherwise: False.
-  bool is64BitArch();
-
   /// The source location struct of this loop.
   /// ident_t = type { i32, i32, i32, i32, i8* }
   GlobalValue *SourceLocationInfo;
@@ -58,7 +55,10 @@ protected:
   /// @param Scheduling   The scheduling, set via command line or its default.
   ///
   /// @return The corresponding integer value.
-  int getSchedType(int ChunkSize, OMPGeneralSchedulingType Scheduling);
+  int getSchedType(int ChunkSize, OMPGeneralSchedulingType Scheduling) const;
+
+  /// Returns True if 'LongType' is 64bit wide, otherwise: False.
+  bool is64BitArch();
 
 public:
   // The functions below may be used if one does not want to generate a

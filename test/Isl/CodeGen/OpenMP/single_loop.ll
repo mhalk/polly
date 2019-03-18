@@ -115,8 +115,8 @@
 ; LIBOMP-IR-NEXT:   call void @__kmpc_for_static_init_{{[4|8]}}(%struct.ident_t* @.loc.dummy{{[.0-9]*}}, i32 %polly.par.global_tid, i32 33, i32* %polly.par.lastIterPtr, i64* %polly.par.LBPtr, i64* %polly.par.UBPtr, i64* %polly.par.StridePtr, i64 1, i64 43)
 ; LIBOMP-IR-NEXT:   %polly.indvar.LB = load i64, i64* %polly.par.LBPtr
 ; LIBOMP-IR-NEXT:   %polly.indvar.UB = load i64, i64* %polly.par.UBPtr
-; LIBOMP-IR-NEXT:   %polly.UB_slt_adjUB = icmp slt i64 %polly.indvar.UB, %polly.indvar.UBAdjusted
-; LIBOMP-IR-NEXT:   %{{[0-9]+}} = select i1 %polly.UB_slt_adjUB, i64 %polly.indvar.UB, i64 %polly.indvar.UBAdjusted
+; LIBOMP-IR-NEXT:   %polly.adjustedUBOutOfBounds = icmp slt i64 %polly.indvar.UB, %polly.indvar.UBAdjusted
+; LIBOMP-IR-NEXT:   %{{[0-9]+}} = select i1 %polly.adjustedUBOutOfBounds, i64 %polly.indvar.UB, i64 %polly.indvar.UBAdjusted
 ; LIBOMP-IR-NEXT:   store i64 %{{[0-9]+}}, i64* %polly.par.UBPtr
 ; LIBOMP-IR-NEXT:   %polly.hasIteration = icmp sle i64 %polly.indvar.LB, %{{[0-9]+}}
 ; LIBOMP-IR:   br i1 %polly.hasIteration, label %polly.par.loadIVBounds, label %polly.par.exit

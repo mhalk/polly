@@ -163,14 +163,6 @@ protected:
   /// The current module
   Module *M;
 
-  /// Convert the given scheduling type (as enum) into the corresponding integer
-  /// value, which represents the scheduling type.
-  ///
-  /// @param Ty   The OMPGeneralSchedulingType enum to convert.
-  ///
-  /// @return The corresponding integer value.
-  int OMPGeneralSchedulingTypeToInt(OMPGeneralSchedulingType Ty);
-
 public:
   /// Create a struct for all @p Values and store them in there.
   ///

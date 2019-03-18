@@ -197,52 +197,61 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
                                         "polly.indvar.UBAdjusted");
 
   Value *ChunkSize =
-      ConstantInt::get(LongType, std::max<int>(polly::PollyChunkSize, 1));
+      ConstantInt::get(LongType, std::max<int>(PollyChunkSize, 1));
 
-  // "DYNAMIC" scheduling types are handled below (including 'runtime')
-  if ((PollyScheduling == OMPGeneralSchedulingType::OMPGST_Dynamic) ||
-      (PollyScheduling == OMPGeneralSchedulingType::OMPGST_Guided) ||
-      (PollyScheduling == OMPGeneralSchedulingType::OMPGST_Runtime)) {
-    UB = AdjustedUB;
-    createCallDispatchInit(ID, LB, UB, Stride, ChunkSize);
-    Value *HasWork =
-        createCallDispatchNext(ID, IsLastPtr, LBPtr, UBPtr, StridePtr);
-    Value *HasIteration =
-        Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ, HasWork,
-                           Builder.getInt32(1), "polly.hasIteration");
-    Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
+  switch (PollyScheduling) {
+  case OMPGeneralSchedulingType::OMPGST_Dynamic:
+  case OMPGeneralSchedulingType::OMPGST_Guided:
+  case OMPGeneralSchedulingType::OMPGST_Runtime:
+    // "DYNAMIC" scheduling types are handled below (including 'runtime')
+    {
+      UB = AdjustedUB;
+      createCallDispatchInit(ID, LB, UB, Stride, ChunkSize);
+      Value *HasWork =
+          createCallDispatchNext(ID, IsLastPtr, LBPtr, UBPtr, StridePtr);
+      Value *HasIteration =
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ, HasWork,
+                             Builder.getInt32(1), "polly.hasIteration");
+      Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
-    Builder.SetInsertPoint(CheckNextBB);
-    HasWork = createCallDispatchNext(ID, IsLastPtr, LBPtr, UBPtr, StridePtr);
-    HasIteration =
-        Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ, HasWork,
-                           Builder.getInt32(1), "polly.hasWork");
-    Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
+      Builder.SetInsertPoint(CheckNextBB);
+      HasWork = createCallDispatchNext(ID, IsLastPtr, LBPtr, UBPtr, StridePtr);
+      HasIteration =
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ, HasWork,
+                             Builder.getInt32(1), "polly.hasWork");
+      Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
-    Builder.SetInsertPoint(PreHeaderBB);
-    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-    UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
-  } else {
+      Builder.SetInsertPoint(PreHeaderBB);
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
+    }
+    break;
+  case OMPGeneralSchedulingType::OMPGST_StaticChunked:
+  case OMPGeneralSchedulingType::OMPGST_StaticNonChunked:
     // "STATIC" scheduling types are handled below
-    createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
+    {
+      createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
 
-    LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-    UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
 
-    Value *HasWork = Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, UB,
-                                        AdjustedUB, "polly.UB_slt_adjUB");
+      Value *AdjUBOutOfBounds =
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, UB, AdjustedUB,
+                             "polly.adjustedUBOutOfBounds");
 
-    UB = Builder.CreateSelect(HasWork, UB, AdjustedUB);
-    Builder.CreateAlignedStore(UB, UBPtr, Alignment);
+      UB = Builder.CreateSelect(AdjUBOutOfBounds, UB, AdjustedUB);
+      Builder.CreateAlignedStore(UB, UBPtr, Alignment);
 
-    Value *HasIteration = Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLE,
-                                             LB, UB, "polly.hasIteration");
-    Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
+      Value *HasIteration = Builder.CreateICmp(
+          llvm::CmpInst::Predicate::ICMP_SLE, LB, UB, "polly.hasIteration");
+      Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
-    Builder.SetInsertPoint(CheckNextBB);
-    Builder.CreateBr(ExitBB);
+      Builder.SetInsertPoint(CheckNextBB);
+      Builder.CreateBr(ExitBB);
 
-    Builder.SetInsertPoint(PreHeaderBB);
+      Builder.SetInsertPoint(PreHeaderBB);
+    }
+    break;
   }
 
   Builder.CreateBr(CheckNextBB);
@@ -334,21 +343,18 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  // Choose between chunked and non-chunked static scheduling types
-  // Note: Values are initialized to chunked versions
-  int SchedType = getSchedType(polly::PollyChunkSize, polly::PollyScheduling);
-
   // The parameter 'ChunkSize' will hold strictly positive integer values,
-  // regardless of polly::PollyChunkSize's value
-  Value *Args[] = {SourceLocationInfo,
-                   GlobalThreadID,
-                   Builder.getInt32(SchedType),
-                   IsLastPtr,
-                   LBPtr,
-                   UBPtr,
-                   StridePtr,
-                   ConstantInt::get(LongType, 1),
-                   ChunkSize};
+  // regardless of PollyChunkSize's value
+  Value *Args[] = {
+      SourceLocationInfo,
+      GlobalThreadID,
+      Builder.getInt32(getSchedType(PollyChunkSize, PollyScheduling)),
+      IsLastPtr,
+      LBPtr,
+      UBPtr,
+      StridePtr,
+      ConstantInt::get(LongType, 1),
+      ChunkSize};
 
   Builder.CreateCall(F, Args);
 }
@@ -396,16 +402,16 @@ void ParallelLoopGeneratorKMP::createCallDispatchInit(Value *GlobalThreadID,
     F = Function::Create(Ty, Linkage, Name, M);
   }
 
-  // Note that for 'dynamic' scheduling types, only chunked versions are used
-  int SchedType = getSchedType(polly::PollyChunkSize, polly::PollyScheduling);
-
-  Value *Args[] = {SourceLocationInfo,
-                   GlobalThreadID,
-                   Builder.getInt32(SchedType),
-                   LB,
-                   UB,
-                   Inc,
-                   ChunkSize};
+  // The parameter 'ChunkSize' will hold strictly positive integer values,
+  // regardless of PollyChunkSize's value
+  Value *Args[] = {
+      SourceLocationInfo,
+      GlobalThreadID,
+      Builder.getInt32(getSchedType(PollyChunkSize, PollyScheduling)),
+      LB,
+      UB,
+      Inc,
+      ChunkSize};
 
   Builder.CreateCall(F, Args);
 }
@@ -498,15 +504,14 @@ bool ParallelLoopGeneratorKMP::is64BitArch() {
 }
 
 int ParallelLoopGeneratorKMP::getSchedType(
-    int ChunkSize, OMPGeneralSchedulingType Scheduling) {
+    int ChunkSize, OMPGeneralSchedulingType Scheduling) const {
   if (ChunkSize > 0) {
-    return OMPGeneralSchedulingTypeToInt(Scheduling);
+    return int(Scheduling);
   }
 
   if (Scheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
-    return OMPGeneralSchedulingTypeToInt(
-        OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
+    return int(OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
   }
 
-  return OMPGeneralSchedulingTypeToInt(Scheduling);
+  return int(Scheduling);
 }
