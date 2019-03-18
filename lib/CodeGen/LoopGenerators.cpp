@@ -30,25 +30,30 @@ int polly::PollyChunkSize;
 
 static cl::opt<int, true>
     XPollyNumThreads("polly-num-threads",
-                    cl::desc("Number of threads to use (0 = auto)"), cl::Hidden,
-                    cl::location(polly::PollyNumThreads), cl::init(0),
-                    cl::cat(PollyCategory));
+                     cl::desc("Number of threads to use (0 = auto)"),
+                     cl::Hidden, cl::location(polly::PollyNumThreads),
+                     cl::init(0), cl::cat(PollyCategory));
 
 static cl::opt<OMPGeneralSchedulingType, true> XPollyScheduling(
     "polly-scheduling",
     cl::desc("Scheduling type of parallel OpenMP for loops"),
-    cl::values(clEnumValN(OMPGeneralSchedulingType::OMPGST_StaticChunked, "static", "Static scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Dynamic, "dynamic", "Dynamic scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Guided, "guided", "Guided scheduling"),
-               clEnumValN(OMPGeneralSchedulingType::OMPGST_Runtime, "runtime", "Runtime determined (OMP_SCHEDULE)")),
-    cl::Hidden, cl::location(polly::PollyScheduling), cl::init(OMPGeneralSchedulingType::OMPGST_Runtime),
-    cl::Optional, cl::cat(PollyCategory));
+    cl::values(clEnumValN(OMPGeneralSchedulingType::OMPGST_StaticChunked,
+                          "static", "Static scheduling"),
+               clEnumValN(OMPGeneralSchedulingType::OMPGST_Dynamic, "dynamic",
+                          "Dynamic scheduling"),
+               clEnumValN(OMPGeneralSchedulingType::OMPGST_Guided, "guided",
+                          "Guided scheduling"),
+               clEnumValN(OMPGeneralSchedulingType::OMPGST_Runtime, "runtime",
+                          "Runtime determined (OMP_SCHEDULE)")),
+    cl::Hidden, cl::location(polly::PollyScheduling),
+    cl::init(OMPGeneralSchedulingType::OMPGST_Runtime), cl::Optional,
+    cl::cat(PollyCategory));
 
 static cl::opt<int, true>
     XPollyChunkSize("polly-scheduling-chunksize",
-                   cl::desc("Chunksize to use by the OpenMP runtime calls"),
-                   cl::Hidden, cl::location(polly::PollyChunkSize), cl::init(0),
-                   cl::Optional, cl::cat(PollyCategory));
+                    cl::desc("Chunksize to use by the OpenMP runtime calls"),
+                    cl::Hidden, cl::location(polly::PollyChunkSize),
+                    cl::init(0), cl::Optional, cl::cat(PollyCategory));
 
 // We generate a loop of either of the following structures:
 //
@@ -246,6 +251,7 @@ void ParallelLoopGenerator::extractValuesFromStruct(
   }
 }
 
-int ParallelLoopGenerator::OMPGeneralSchedulingTypeToInt(OMPGeneralSchedulingType Ty) {
-    return int(Ty);
+int ParallelLoopGenerator::OMPGeneralSchedulingTypeToInt(
+    OMPGeneralSchedulingType Ty) {
+  return int(Ty);
 }

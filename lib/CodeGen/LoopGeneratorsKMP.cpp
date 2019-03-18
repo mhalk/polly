@@ -196,7 +196,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Value *AdjustedUB = Builder.CreateAdd(UB, ConstantInt::get(LongType, -1),
                                         "polly.indvar.UBAdjusted");
 
-  Value *ChunkSize = ConstantInt::get(LongType, std::max<int>(polly::PollyChunkSize, 1));
+  Value *ChunkSize =
+      ConstantInt::get(LongType, std::max<int>(polly::PollyChunkSize, 1));
 
   // "DYNAMIC" scheduling types are handled below (including 'runtime')
   if ((PollyScheduling == OMPGeneralSchedulingType::OMPGST_Dynamic) ||
@@ -447,7 +448,8 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
   GlobalVariable *SourceLocDummy = M->getGlobalVariable(LocName);
 
   if (SourceLocDummy == nullptr) {
-    StructType *IdentTy = M->getTypeByName("struct.ident_t");
+    const std::string StructName = "struct.ident_t";
+    StructType *IdentTy = M->getTypeByName(StructName);
 
     // If the ident_t StructType is not available, declare it.
     // in LLVM-IR: ident_t = type { i32, i32, i32, i32, i8* }
@@ -456,8 +458,8 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
                             Builder.getInt32Ty(), Builder.getInt32Ty(),
                             Builder.getInt8PtrTy()};
 
-      IdentTy = StructType::create(M->getContext(), LocMembers,
-                                   "struct.ident_t", false);
+      IdentTy =
+          StructType::create(M->getContext(), LocMembers, StructName, false);
     }
 
     const int Length = 23;
@@ -473,18 +475,18 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
     SourceLocDummy->setAlignment(8);
 
     // Constant Definitions
-    const Constant *InitStr = ConstantDataArray::getString(
+    Constant *InitStr = ConstantDataArray::getString(
         M->getContext(), "Source location dummy.", true);
 
-    const Value *StrPtr = Builder.CreateInBoundsGEP(
-        ArrayType, StrVar, {Builder.getInt32(0), Builder.getInt32(0)});
+    Constant *StrPtr = static_cast<Constant *>(Builder.CreateInBoundsGEP(
+        ArrayType, StrVar, {Builder.getInt32(0), Builder.getInt32(0)}));
 
     Constant *LocInitStruct = ConstantStruct::get(
         IdentTy, {Builder.getInt32(0), Builder.getInt32(0), Builder.getInt32(0),
-                  Builder.getInt32(0), (Constant *)StrPtr});
+                  Builder.getInt32(0), StrPtr});
 
     // Initialize variables
-    StrVar->setInitializer(const_cast<Constant *>(InitStr));
+    StrVar->setInitializer(InitStr);
     SourceLocDummy->setInitializer(LocInitStruct);
   }
 
@@ -492,15 +494,19 @@ GlobalVariable *ParallelLoopGeneratorKMP::createSourceLocation() {
 }
 
 bool ParallelLoopGeneratorKMP::is64BitArch() {
-  return LongType->getIntegerBitWidth() == 64;
+  return (LongType->getIntegerBitWidth() == 64);
 }
 
 int ParallelLoopGeneratorKMP::getSchedType(
-      int ChunkSize, OMPGeneralSchedulingType Scheduling) {
-  if(ChunkSize > 0) return OMPGeneralSchedulingTypeToInt(Scheduling);
-  if (Scheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
-      return OMPGeneralSchedulingTypeToInt(
-          OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
+    int ChunkSize, OMPGeneralSchedulingType Scheduling) {
+  if (ChunkSize > 0) {
+    return OMPGeneralSchedulingTypeToInt(Scheduling);
   }
+
+  if (Scheduling == OMPGeneralSchedulingType::OMPGST_StaticChunked) {
+    return OMPGeneralSchedulingTypeToInt(
+        OMPGeneralSchedulingType::OMPGST_StaticNonChunked);
+  }
+
   return OMPGeneralSchedulingTypeToInt(Scheduling);
 }
