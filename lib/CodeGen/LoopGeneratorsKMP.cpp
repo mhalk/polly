@@ -11,14 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "polly/CodeGen/LoopGeneratorsKMP.h"
-#include "polly/Options.h"
-#include "polly/ScopDetection.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 using namespace polly;
@@ -198,8 +192,6 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
 
   Value *ChunkSize =
       ConstantInt::get(LongType, std::max<int>(PollyChunkSize, 1));
-
-      printf("Provided chunksize was: %d\n", PollyChunkSize);
 
   switch (PollyScheduling) {
   case OMPGeneralSchedulingType::Dynamic:
@@ -386,8 +378,6 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
     FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
     F = Function::Create(Ty, Linkage, Name, M);
   }
-
-  printf("Sched: %d\n", int(getSchedType(PollyChunkSize, PollyScheduling)));
 
   // The parameter 'ChunkSize' will hold strictly positive integer values,
   // regardless of PollyChunkSize's value
