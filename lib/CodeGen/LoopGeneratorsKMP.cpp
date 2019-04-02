@@ -113,10 +113,10 @@ Function *ParallelLoopGeneratorKMP::prepareSubFnDefinition(Function *F) const {
 //       |
 //       v
 //    HeaderBB
-//       |   _____
-//       v  v    |
+//       |   ______
+//       v  v      |
 //   CheckNextBB  PreHeaderBB
-//       |\       |
+//       |\        |
 //       | \______/
 //       |
 //       v
@@ -199,6 +199,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Value *ChunkSize =
       ConstantInt::get(LongType, std::max<int>(PollyChunkSize, 1));
 
+      printf("Provided chunksize was: %d\n", PollyChunkSize);
+
   switch (PollyScheduling) {
   case OMPGeneralSchedulingType::Dynamic:
   case OMPGeneralSchedulingType::Guided:
@@ -226,7 +228,6 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
     }
     break;
-  case OMPGeneralSchedulingType::StaticChunked:
   case OMPGeneralSchedulingType::StaticNonChunked:
     // "STATIC" scheduling types are handled below
     {
@@ -250,6 +251,49 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       Builder.CreateBr(ExitBB);
 
       Builder.SetInsertPoint(PreHeaderBB);
+    }
+    break;
+  case OMPGeneralSchedulingType::StaticChunked:
+    // "STATIC" scheduling types are handled below
+    {
+      BasicBlock *PreExitBB = BasicBlock::Create(Context, "polly.par.preexit", SubFn);
+      DT.addNewBlock(PreExitBB, CheckNextBB);
+
+      createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
+
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
+
+      Value *AdjUBOutOfBounds =
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, UB, AdjustedUB,
+                             "polly.adjustedUBOutOfBounds");
+
+      //UB = Builder.CreateSelect(AdjUBOutOfBounds, UB, AdjustedUB);
+      Builder.CreateAlignedStore(UB, UBPtr, Alignment);
+
+      Value *HasIteration = Builder.CreateICmp(
+          llvm::CmpInst::Predicate::ICMP_SLE, LB, UB, "polly.hasIteration");
+      Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
+
+      Value *NumThreads = ConstantInt::get(LongType, 4);
+
+      Builder.SetInsertPoint(CheckNextBB);
+      Value *nextLB = Builder.CreateAdd(LB, NumThreads, "polly.nextLB");
+      Value *nextUB = Builder.CreateAdd(UB, NumThreads, "polly.nextUB");
+      Value *NextUBOutOfBounds = Builder.CreateICmp(
+          llvm::CmpInst::Predicate::ICMP_SLT, UB, nextUB, "polly.loop.nextUBOutOfBounds");
+      nextUB = Builder.CreateSelect(NextUBOutOfBounds, UB, nextUB);
+      Value *HasWork = Builder.CreateICmp(
+          llvm::CmpInst::Predicate::ICMP_SLE, nextLB, nextUB, "polly.loop.hasWork");
+      Builder.CreateCondBr(HasWork, PreHeaderBB, PreExitBB);
+
+      Builder.SetInsertPoint(PreExitBB);
+      Builder.CreateAlignedStore(nextLB, LBPtr, Alignment);
+      Builder.CreateAlignedStore(nextUB, UBPtr, Alignment);
+      Builder.CreateBr(ExitBB);
+
+      Builder.SetInsertPoint(PreHeaderBB);
+
     }
     break;
   }
@@ -342,6 +386,8 @@ void ParallelLoopGeneratorKMP::createCallStaticInit(Value *GlobalThreadID,
     FunctionType *Ty = FunctionType::get(Builder.getVoidTy(), Params, false);
     F = Function::Create(Ty, Linkage, Name, M);
   }
+
+  printf("Sched: %d\n", int(getSchedType(PollyChunkSize, PollyScheduling)));
 
   // The parameter 'ChunkSize' will hold strictly positive integer values,
   // regardless of PollyChunkSize's value
