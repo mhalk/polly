@@ -195,9 +195,6 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
 
   OMPGeneralSchedulingType Scheduling = getSchedType(PollyChunkSize, PollyScheduling);
 
-  Value *DLB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-  Value *DUB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
-
   switch (Scheduling) {
   case OMPGeneralSchedulingType::Dynamic:
   case OMPGeneralSchedulingType::Guided:
@@ -228,7 +225,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   case OMPGeneralSchedulingType::StaticNonChunked:
     // "STATIC" scheduling types are handled below
     {
-      printf("Static NON-Chunked was chosen!\n");
+      printf("Scheduling: Static Non Chunked\n");
       createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
 
       LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
@@ -254,7 +251,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   case OMPGeneralSchedulingType::StaticChunked:
     // "STATIC" scheduling types are handled below
     {
-      printf("Static Chunked was chosen!\n");
+      printf("Scheduling: Static Chunked\n");
       Value *GlobalUB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.GlobalUB");
       createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
 
@@ -264,9 +261,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       Value *ChunkedStride = Builder.CreateAlignedLoad(StridePtr, Alignment, "polly.indvar.Stride");
 
       Value *AdjUBOutOfBounds =
-          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, GlobalUB, AdjustedUB,
-                             "polly.adjustedUBOutOfBounds");
-
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLT, GlobalUB,
+                             AdjustedUB, "polly.adjustedUBOutOfBounds");
       GlobalUB = Builder.CreateSelect(AdjUBOutOfBounds, GlobalUB, AdjustedUB);
       // Builder.CreateAlignedStore(GlobalUB, UBPtr, Alignment);
 
@@ -278,6 +274,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       // ConstantInt::get(LongType, 0)
 
       Builder.SetInsertPoint(CheckNextBB);
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment);
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment);
       Value *NextLB = Builder.CreateAdd(LB, ChunkedStride, "polly.nextLB");
       Value *NextUB = Builder.CreateAdd(UB, ChunkedStride, "polly.nextUB");
       Value *NextUBOutOfBounds = Builder.CreateICmp(
@@ -290,8 +288,6 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
       Builder.CreateCondBr(HasWork, PreHeaderBB, ExitBB);
 
       Builder.SetInsertPoint(PreHeaderBB);
-      LB = Builder.CreateAlignedLoad(LBPtr, Alignment);
-      UB = Builder.CreateAlignedLoad(UBPtr, Alignment);
     }
     break;
   }
@@ -299,6 +295,8 @@ ParallelLoopGeneratorKMP::createSubFn(Value *StrideNotUsed,
   Builder.CreateBr(CheckNextBB);
   Builder.SetInsertPoint(&*--Builder.GetInsertPoint());
   BasicBlock *AfterBB;
+  LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB.before");
+  UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB.before");
   Value *IV = createLoop(LB, UB, Stride, Builder, LI, DT, AfterBB,
                          ICmpInst::ICMP_SLE, nullptr, true,
                          /* UseGuard */ false);
