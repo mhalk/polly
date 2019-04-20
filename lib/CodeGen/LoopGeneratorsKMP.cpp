@@ -103,25 +103,28 @@ Function *ParallelLoopGeneratorKMP::prepareSubFnDefinition(Function *F) const {
 
 // Create a subfunction of the following (preliminary) structure:
 //
-//    PrevBB
-//       |
-//       v
-//    HeaderBB
-//       |   _____
-//       v  v    |
-//   CheckNextBB  PreHeaderBB
-//       |\       |
-//       | \______/
-//       |
-//       v
-//     ExitBB
+//        PrevBB
+//           |
+//           v
+//        HeaderBB
+//       /   |    _____
+//      /    v   v     |
+//     / PreHeaderBB   |
+//    |      |         |
+//    |      v         |
+//    |  CheckNextBB   |
+//     \     |   \_____/
+//      \    |
+//       v   v
+//       ExitBB
 //
 // HeaderBB will hold allocations, loading of variables and kmp-init calls.
-// CheckNextBB will check for more work (dynamic) or will be "empty" (static).
+// CheckNextBB will check for more work (dynamic / static chunked) or will be
+// empty (static non chunked).
 // If there is more work to do: go to PreHeaderBB, otherwise go to ExitBB.
 // PreHeaderBB loads the new boundaries (& will lead to the loop body later on).
-// Just like CheckNextBB: PreHeaderBB is empty in the static scheduling case.
-// ExitBB marks the end of the parallel execution.
+// Just like CheckNextBB: PreHeaderBB is (preliminary) empty in the static non
+// chunked scheduling case. ExitBB marks the end of the parallel execution.
 // The possibly empty BasicBlocks will automatically be removed.
 std::tuple<Value *, Function *>
 ParallelLoopGeneratorKMP::createSubFn(Value *SequentialLoopStride,
@@ -188,12 +191,13 @@ ParallelLoopGeneratorKMP::createSubFn(Value *SequentialLoopStride,
   // Subtract one as the upper bound provided by openmp is a < comparison
   // whereas the codegenForSequential function creates a <= comparison.
   Value *AdjustedUB = Builder.CreateAdd(UB, ConstantInt::get(LongType, -1),
-                                        "polly.indvar.UBAdjusted");
+                                        "polly.par.UBAdjusted");
 
   Value *ChunkSize =
       ConstantInt::get(LongType, std::max<int>(PollyChunkSize, 1));
 
-  OMPGeneralSchedulingType Scheduling = getSchedType(PollyChunkSize, PollyScheduling);
+  OMPGeneralSchedulingType Scheduling =
+      getSchedType(PollyChunkSize, PollyScheduling);
 
   switch (Scheduling) {
   case OMPGeneralSchedulingType::Dynamic:
@@ -207,7 +211,7 @@ ParallelLoopGeneratorKMP::createSubFn(Value *SequentialLoopStride,
           createCallDispatchNext(ID, IsLastPtr, LBPtr, UBPtr, StridePtr);
       Value *HasIteration =
           Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_EQ, HasWork,
-                             Builder.getInt32(1), "polly.hasIteration");
+                             Builder.getInt32(1), "polly.par.hasIteration");
       Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
       Builder.SetInsertPoint(CheckNextBB);
@@ -218,82 +222,62 @@ ParallelLoopGeneratorKMP::createSubFn(Value *SequentialLoopStride,
       Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
       Builder.SetInsertPoint(PreHeaderBB);
-      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.par.LB");
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.par.UB");
     }
     break;
+  case OMPGeneralSchedulingType::StaticChunked:
   case OMPGeneralSchedulingType::StaticNonChunked:
     // "STATIC" scheduling types are handled below
     {
-      printf("Scheduling: Static Non Chunked\n");
       Builder.CreateAlignedStore(AdjustedUB, UBPtr, Alignment);
       createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
 
-      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB");
+      Value *ChunkedStride =
+          Builder.CreateAlignedLoad(StridePtr, Alignment, "polly.kmpc.stride");
 
-      //Value *AdjUBOutOfBounds =
-      //    Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SGT, AdjustedUB, UB,
-      //                       "polly.adjustedUB.outOfBounds");
+      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.par.LB");
+      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.par.UB.temp");
 
-      //UB = Builder.CreateSelect(AdjUBOutOfBounds, UB, AdjustedUB);
-      //Builder.CreateAlignedStore(UB, UBPtr, Alignment);
-
-      Value *UBInRange = Builder.CreateICmp(
-          llvm::CmpInst::Predicate::ICMP_SLE, UB, AdjustedUB, "polly.indvar.UB.inRange");
-      UB = Builder.CreateSelect(UBInRange, UB, AdjustedUB, "polly.indvar.UB");
+      Value *UBInRange =
+          Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLE, UB, AdjustedUB,
+                             "polly.par.UB.inRange");
+      UB = Builder.CreateSelect(UBInRange, UB, AdjustedUB, "polly.par.UB");
       Builder.CreateAlignedStore(UB, UBPtr, Alignment);
 
       Value *HasIteration = Builder.CreateICmp(
-          llvm::CmpInst::Predicate::ICMP_SLE, LB, UB, "polly.hasIteration");
+          llvm::CmpInst::Predicate::ICMP_SLE, LB, UB, "polly.par.hasIteration");
       Builder.CreateCondBr(HasIteration, PreHeaderBB, ExitBB);
 
-      Builder.SetInsertPoint(CheckNextBB);
-      Builder.CreateBr(ExitBB);
-
-      Builder.SetInsertPoint(PreHeaderBB);
-    }
-    break;
-    case OMPGeneralSchedulingType::StaticChunked:
-    // "STATIC" scheduling types are handled below
-    {
-      printf("Scheduling: Static Chunked\n");
-      Builder.CreateAlignedStore(AdjustedUB, UBPtr, Alignment);
-      createCallStaticInit(ID, IsLastPtr, LBPtr, UBPtr, StridePtr, ChunkSize);
-
-      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB");
-      UB = Builder.CreateAlignedLoad(UBPtr, Alignment);
-
-      Value *ChunkedStride = Builder.CreateAlignedLoad(StridePtr, Alignment, "polly.kmpc.stride");
-
-      Value *LBInRange = Builder.CreateICmp(
-          llvm::CmpInst::Predicate::ICMP_SLE, LB, AdjustedUB, "polly.indvar.LB.inRange");
-      Value *UBInRange = Builder.CreateICmp(
-          llvm::CmpInst::Predicate::ICMP_SLE, UB, AdjustedUB, "polly.indvar.UB.inRange");
-
-      UB = Builder.CreateSelect(UBInRange, UB, AdjustedUB, "polly.indvar.UB");
-      Builder.CreateAlignedStore(UB, UBPtr, Alignment);
-
-      Builder.CreateCondBr(LBInRange, PreHeaderBB, ExitBB);
-
-      Builder.SetInsertPoint(PreHeaderBB);
-      LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.indvar.LB.entry");
-      UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.indvar.UB.entry");
+      if (Scheduling == OMPGeneralSchedulingType::StaticChunked) {
+        Builder.SetInsertPoint(PreHeaderBB);
+        LB = Builder.CreateAlignedLoad(LBPtr, Alignment, "polly.par.LB.entry");
+        UB = Builder.CreateAlignedLoad(UBPtr, Alignment, "polly.par.UB.entry");
+      }
 
       Builder.SetInsertPoint(CheckNextBB);
-      Value *NextLB = Builder.CreateAdd(LB, ChunkedStride, "polly.loop.nextLB");
-      Value *NextUB = Builder.CreateAdd(UB, ChunkedStride);
 
-      Value *NextUBOutOfBounds = Builder.CreateICmp(
-          llvm::CmpInst::Predicate::ICMP_SGT, NextUB, AdjustedUB, "polly.loop.nextUB.outOfBounds");
-      NextUB = Builder.CreateSelect(NextUBOutOfBounds, AdjustedUB, NextUB, "polly.loop.nextUB");
+      if (Scheduling == OMPGeneralSchedulingType::StaticChunked) {
+        Value *NextLB =
+            Builder.CreateAdd(LB, ChunkedStride, "polly.par.nextLB");
+        Value *NextUB = Builder.CreateAdd(UB, ChunkedStride);
 
-      Builder.CreateAlignedStore(NextLB, LBPtr, Alignment);
-      Builder.CreateAlignedStore(NextUB, UBPtr, Alignment);
+        Value *NextUBOutOfBounds =
+            Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SGT, NextUB,
+                               AdjustedUB, "polly.par.nextUB.outOfBounds");
+        NextUB = Builder.CreateSelect(NextUBOutOfBounds, AdjustedUB, NextUB,
+                                      "polly.par.nextUB");
 
-      Value *HasWork = Builder.CreateICmp(
-           llvm::CmpInst::Predicate::ICMP_SLE, NextLB, AdjustedUB, "polly.loop.hasWork");
-      Builder.CreateCondBr(HasWork, PreHeaderBB, ExitBB);
+        Builder.CreateAlignedStore(NextLB, LBPtr, Alignment);
+        Builder.CreateAlignedStore(NextUB, UBPtr, Alignment);
+
+        Value *HasWork =
+            Builder.CreateICmp(llvm::CmpInst::Predicate::ICMP_SLE, NextLB,
+                               AdjustedUB, "polly.par.hasWork");
+        Builder.CreateCondBr(HasWork, PreHeaderBB, ExitBB);
+      } else {
+        Builder.CreateBr(ExitBB);
+      }
 
       Builder.SetInsertPoint(PreHeaderBB);
     }

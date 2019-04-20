@@ -73,11 +73,11 @@ Function *ParallelLoopGeneratorGOMP::prepareSubFnDefinition(Function *F) const {
 //       |
 //       v
 //    HeaderBB
-//       |   ______
-//       v  v      |
+//       |   _______
+//       v  v       |
 //   CheckNextBB  PreHeaderBB
-//       |\        |
-//       | \______/
+//       | \        |
+//       |  \______/
 //       |
 //       v
 //     ExitBB
